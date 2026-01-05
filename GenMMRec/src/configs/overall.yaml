@@ -1,11 +1,7 @@
 # general
 gpu_id: 0
 use_gpu: True
-seed: [42]
-
-# Weights & Biases logging
-use_wandb: True                          # Enable/disable wandb logging
-wandb_project: 'GenMMRec'                # W&B project name
+seed: [999]
 
 # multi-modal raw features
 data_path: '../data/'
