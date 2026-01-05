@@ -2,7 +2,7 @@
 # Desc: Core code of the LD4MRec.
 # Author: OrangeAI Research Team
 # Time: 2026-01-04
-# paper: "LD4MRec: Simplifying and Powering Diffusion Model for Multimedia Recommendation, WWW2024"
+# paper: "LD4MRec: Simplifying and Powering Diffusion Model for Multimedia Recommendation" (WWW2024, LD4MRec)
 
 import torch
 import torch.nn as nn
