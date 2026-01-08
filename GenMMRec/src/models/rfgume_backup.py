@@ -288,31 +288,16 @@ class RFGUME(GUME):
             config["rf_sampling_steps"] if "rf_sampling_steps" in config else 10
         )
 
-        # RF Warmup: 前 N 个 epoch 不启用 RF，先让 GUME 收敛
-        self.rf_warmup_epochs = (
-            config["rf_warmup_epochs"] if "rf_warmup_epochs" in config else 0
-        )
-        self.current_epoch = 0  # 由 trainer 更新
-
-        # RF 混合比例：0.0 = 纯GUME，1.0 = 纯RF
-        # 训练时使用较小的值，推理时可以使用较大的值
-        self.rf_mix_ratio = config["rf_mix_ratio"] if "rf_mix_ratio" in config else 0.1
-
-        # RF 推理时的混合比例（可以比训练时更大）
-        self.rf_inference_mix_ratio = (
-            config["rf_inference_mix_ratio"]
-            if "rf_inference_mix_ratio" in config
-            else 0.3
-        )
-
-        # RF 训练模式：'auxiliary' = 仅辅助损失，'hybrid' = 辅助损失+混合embeddings
-        self.rf_train_mode = (
-            config["rf_train_mode"] if "rf_train_mode" in config else "auxiliary"
-        )
-
         if self.use_rf:
-            # 使用单个统一的RF生成器处理用户和物品
-            self.rf_generator = RFExtendedIdGenerator(
+            # 为user和item分别创建RF生成器（低耦合设计）
+            self.rf_user_generator = RFExtendedIdGenerator(
+                embedding_dim=self.embedding_dim,
+                hidden_dim=self.rf_hidden_dim,
+                n_layers=self.rf_n_layers,
+                dropout=self.rf_dropout,
+            )
+
+            self.rf_item_generator = RFExtendedIdGenerator(
                 embedding_dim=self.embedding_dim,
                 hidden_dim=self.rf_hidden_dim,
                 n_layers=self.rf_n_layers,
@@ -320,23 +305,11 @@ class RFGUME(GUME):
             )
 
             print(
-                f"RF-GUME initialized with unified RF generator: "
-                f"hidden_dim={self.rf_hidden_dim}, n_layers={self.rf_n_layers}, "
-                f"sampling_steps={self.rf_sampling_steps}, "
-                f"warmup_epochs={self.rf_warmup_epochs}, "
-                f"train_mode={self.rf_train_mode}, "
-                f"mix_ratio(train/infer)={self.rf_mix_ratio}/{self.rf_inference_mix_ratio}"
+                f"RF-GUME initialized with RF generators: hidden_dim={self.rf_hidden_dim}, "
+                f"n_layers={self.rf_n_layers}, sampling_steps={self.rf_sampling_steps}"
             )
 
-    def set_epoch(self, epoch):
-        """由 trainer 调用，更新当前 epoch"""
-        self.current_epoch = epoch
-
-    def is_rf_active(self):
-        """检查 RF 是否已激活（已过 warmup 阶段）"""
-        return self.use_rf and self.current_epoch >= self.rf_warmup_epochs
-
-    def forward(self, adj, train=False):
+    def forward_with_rf(self, adj, train=False):
         """
         使用RF生成extended_id_embeds的前向传播
 
@@ -381,44 +354,46 @@ class RFGUME(GUME):
         )
 
         # ===== 使用RF生成extended_id_embeds =====
-        rf_active = self.is_rf_active()
-        rf_generated_full = None
-
-        if rf_active and train:
-            # 训练模式
-            rf_generated_embeds = self.rf_generator(
-                explicit_image_embeds,
-                explicit_text_embeds,
-                n_steps=self.rf_sampling_steps,
+        if self.use_rf and train:
+            # 训练模式：使用RF生成embeds，这样RF生成器才能通过梯度学习
+            # 生成user embeds
+            rf_user_embeds = self.rf_user_generator(
+                explicit_image_user, explicit_text_user, n_steps=self.rf_sampling_steps
             )
-            rf_generated_full = rf_generated_embeds
 
-            if self.rf_train_mode == "auxiliary":
-                # 辅助模式：训练时保持原始GUME的embeddings，RF只提供辅助损失
-                # 这样不会破坏GUME的训练，但RF会学习如何从多模态条件生成embeddings
-                extended_id_embeds = extended_id_embeds_target
-            else:
-                # 混合模式：使用较小的混合比例
-                extended_id_embeds = (
-                    (1 - self.rf_mix_ratio) * extended_id_embeds_target
-                    + self.rf_mix_ratio * rf_generated_embeds
-                )
+            # 生成item embeds
+            rf_item_embeds = self.rf_item_generator(
+                explicit_image_item, explicit_text_item, n_steps=self.rf_sampling_steps
+            )
 
-        elif rf_active and not train:
-            # 推理模式：使用更大的混合比例，让RF发挥作用
+            # 使用RF生成的embeds替换原始的
+            # 这样梯度可以回传到RF生成器
+            extended_id_embeds = torch.cat([rf_user_embeds, rf_item_embeds], dim=0)
+
+            # 保存生成的embeds用于计算对比损失
+            rf_generated_user = rf_user_embeds
+            rf_generated_item = rf_item_embeds
+
+        elif self.use_rf and not train:
+            # 推理模式：使用RF生成
             with torch.no_grad():
-                rf_generated_embeds = self.rf_generator(
-                    explicit_image_embeds,
-                    explicit_text_embeds,
+                # 生成user embeds
+                rf_user_embeds = self.rf_user_generator(
+                    explicit_image_user,
+                    explicit_text_user,
                     n_steps=self.rf_sampling_steps,
                 )
-                # 推理时使用更大的混合比例
-                extended_id_embeds = (
-                    (1 - self.rf_inference_mix_ratio) * extended_id_embeds_target
-                    + self.rf_inference_mix_ratio * rf_generated_embeds
+
+                # 生成item embeds
+                rf_item_embeds = self.rf_item_generator(
+                    explicit_image_item,
+                    explicit_text_item,
+                    n_steps=self.rf_sampling_steps,
                 )
+
+                extended_id_embeds = torch.cat([rf_user_embeds, rf_item_embeds], dim=0)
         else:
-            # 不使用RF 或 warmup阶段，保持原始GUME行为
+            # 不使用RF，保持原始GUME行为
             extended_id_embeds = extended_id_embeds_target
 
         # ===== 继续GUME的其余部分 =====
@@ -466,13 +441,16 @@ class RFGUME(GUME):
             # 返回RF相关的输出
             rf_outputs = {
                 "extended_id_embeds_target": extended_id_embeds_target,
-                "explicit_image_embeds": explicit_image_embeds,  # 完整条件
-                "explicit_text_embeds": explicit_text_embeds,  # 完整条件
+                "explicit_image_user": explicit_image_user,
+                "explicit_image_item": explicit_image_item,
+                "explicit_text_user": explicit_text_user,
+                "explicit_text_item": explicit_text_item,
             }
 
-            # 如果使用RF且已激活，添加生成的embeds
-            if rf_active and rf_generated_full is not None:
-                rf_outputs["rf_generated_embeds"] = rf_generated_full
+            # 如果使用RF，添加生成的embeds
+            if self.use_rf:
+                rf_outputs["rf_user_embeds"] = rf_generated_user
+                rf_outputs["rf_item_embeds"] = rf_generated_item
 
             other_outputs = {
                 "integration_embeds": integration_embeds,
@@ -488,35 +466,48 @@ class RFGUME(GUME):
 
     def calculate_rf_loss(self, rf_outputs):
         """
-        使用统一RF生成器计算损失
+        计算RF相关的损失
 
         Args:
-            rf_outputs: Dictionary containing:
-                - extended_id_embeds_target: [n_users + n_items, embedding_dim]
-                - explicit_image_embeds: [n_users + n_items, embedding_dim]
-                - explicit_text_embeds: [n_users + n_items, embedding_dim]
-                - rf_generated_embeds: [n_users + n_items, embedding_dim]
+            rf_outputs: RF相关的输出
 
         Returns:
-            rf_loss: Rectified Flow速度场损失
-            contrast_loss: InfoNCE对比损失
+            rf_loss: Rectified Flow损失
+            contrast_loss: 生成的和原始的extended_id_embeds的对比损失
         """
-        # 获取完整的目标embeddings和条件
-        target_embeds = rf_outputs["extended_id_embeds_target"]
-        image_cond = rf_outputs["explicit_image_embeds"]
-        text_cond = rf_outputs["explicit_text_embeds"]
-
-        # 统一的RF损失计算：在单次前向传播中处理所有实体
-        # 学习速度场 v(X_t, t, [image_cond, text_cond])
-        rf_loss = self.rf_generator.rectified_flow_loss(
-            target_embeds,  # Shape: [n_users + n_items, embedding_dim]
-            image_cond,  # Shape: [n_users + n_items, embedding_dim]
-            text_cond,  # Shape: [n_users + n_items, embedding_dim]
+        # 分离user和item的目标embeds
+        extended_id_embeds_target = rf_outputs["extended_id_embeds_target"]
+        user_target, item_target = torch.split(
+            extended_id_embeds_target, [self.n_users, self.n_items], dim=0
         )
 
-        # 统一的对比损失：RF生成的embeddings应接近目标embeddings
-        rf_generated = rf_outputs["rf_generated_embeds"]
-        contrast_loss = self.InfoNCE(rf_generated, target_embeds, self.bm_temp)
+        # User的RF损失 - 这是核心损失，学习速度场
+        user_rf_loss = self.rf_user_generator.rectified_flow_loss(
+            user_target,
+            rf_outputs["explicit_image_user"],
+            rf_outputs["explicit_text_user"],
+        )
+
+        # Item的RF损失
+        item_rf_loss = self.rf_item_generator.rectified_flow_loss(
+            item_target,
+            rf_outputs["explicit_image_item"],
+            rf_outputs["explicit_text_item"],
+        )
+
+        # 总的RF损失
+        rf_loss = (user_rf_loss + item_rf_loss) / 2
+
+        # 对比损失：生成的embeds（已经在forward中生成）应该接近目标embeds
+        # 这个损失作为额外的约束，确保RF生成的embeds质量
+        rf_user_embeds = rf_outputs["rf_user_embeds"]
+        rf_item_embeds = rf_outputs["rf_item_embeds"]
+
+        # InfoNCE对比损失
+        # 使用与GUME相同的temperature参数
+        user_contrast_loss = self.InfoNCE(rf_user_embeds, user_target, self.bm_temp)
+        item_contrast_loss = self.InfoNCE(rf_item_embeds, item_target, self.bm_temp)
+        contrast_loss = (user_contrast_loss + item_contrast_loss) / 2
 
         return rf_loss, contrast_loss
 
@@ -536,7 +527,7 @@ class RFGUME(GUME):
 
         # 前向传播
         if self.use_rf:
-            embeds_1, rf_outputs, other_outputs = self.forward(
+            embeds_1, rf_outputs, other_outputs = self.forward_with_rf(
                 self.norm_adj, train=True
             )
 
@@ -605,30 +596,16 @@ class RFGUME(GUME):
         # 原始GUME的总损失
         gume_loss = bpr_loss + al_loss + um_loss + reg_loss
 
-        # ===== RF损失（如果使用RF且已过warmup阶段）=====
-        if self.is_rf_active():
+        # ===== RF损失（如果使用RF）=====
+        if self.use_rf:
             rf_loss, contrast_loss = self.calculate_rf_loss(rf_outputs)
-
-            # 渐进式增加RF损失权重（从warmup结束后逐渐增加到100%）
-            # 在10个epoch内从0增加到full weight
-            epochs_since_warmup = self.current_epoch - self.rf_warmup_epochs
-            warmup_progress = min(1.0, epochs_since_warmup / 10.0)
-            effective_rf_weight = self.rf_loss_weight * warmup_progress
-            effective_contrast_weight = self.contrast_loss_weight * warmup_progress
 
             # 总损失 = GUME损失 + RF损失 + 对比损失
             total_loss = (
                 gume_loss
-                + effective_rf_weight * rf_loss
-                + effective_contrast_weight * contrast_loss
+                + self.rf_loss_weight * rf_loss
+                + self.contrast_loss_weight * contrast_loss
             )
-
-            # 打印RF损失信息（每10个epoch）
-            if self.current_epoch % 10 == 0:
-                print(
-                    f"  [RF] epoch={self.current_epoch}, progress={warmup_progress:.2f}, "
-                    f"rf_loss={rf_loss.item():.4f}, contrast_loss={contrast_loss.item():.4f}"
-                )
 
             return total_loss
         else:
@@ -641,7 +618,7 @@ class RFGUME(GUME):
         user = interaction[0]
 
         if self.use_rf:
-            all_embeds = self.forward(self.norm_adj, train=False)
+            all_embeds = self.forward_with_rf(self.norm_adj, train=False)
         else:
             all_embeds = self.forward(self.norm_adj)
 

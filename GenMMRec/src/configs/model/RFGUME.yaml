@@ -4,7 +4,7 @@
 # ===== Base Settings (inherited from GUME) =====
 embedding_size: 64
 learning_rate: 0.001
-learning_rate_scheduler: [0.96, 50]
+learning_rate_scheduler: [0.96, 20]  # 更缓慢的衰减：每50步衰减4%
 
 # ===== GUME Parameters =====
 # Graph convolution layers
@@ -29,19 +29,29 @@ reg_weight_2: 0.1           # L2 regularization weight for noise
 use_rf: True                # Enable RF for extended_id_embeds generation (set False for ablation)
 
 # RF Network Architecture
-rf_hidden_dim: 256          # Hidden dimension of velocity field network
-rf_n_layers: 3              # Number of layers in velocity field network
-rf_dropout: 0.1             # Dropout rate for RF network
+rf_hidden_dim: 256          # 隐藏层维度
+rf_n_layers: 4              # 网络层数
+rf_dropout: 0.1             # Dropout率
 
 # RF Training & Sampling
-rf_sampling_steps: 10       # ODE solver steps (balance between speed and quality)
-                            # - 1 step: fastest but lower quality
-                            # - 10 steps: good balance (recommended)
-                            # - 100 steps: highest quality but slower
+rf_sampling_steps: 10       # ODE采样步数（推理质量）
+                            # - 5 steps: 快速
+                            # - 10 steps: 推荐
+                            # - 20+ steps: 高质量
 
-# RF Loss Weights
-rf_loss_weight: 1.0         # Weight for RF velocity field loss
-contrast_loss_weight: 0.1   # Weight for InfoNCE contrast loss between generated and target embeds
+# RF Loss Weights - 合理的权重让RF有贡献
+rf_loss_weight: 0.1         # RF速度场损失权重（核心贡献点）
+contrast_loss_weight: 0.05  # 对比损失权重
+
+# RF Warmup - 渐进式启用RF
+rf_warmup_epochs: 5         # 前5个epoch不启用RF，让GUME预热
+
+# RF 训练模式
+rf_train_mode: 'auxiliary'  # 'auxiliary' = 仅辅助损失（推荐）, 'hybrid' = 混合embeddings
+
+# RF 混合策略
+rf_mix_ratio: 0.1           # 训练时的混合比例（仅hybrid模式使用）
+rf_inference_mix_ratio: 0.2 # 推理时的混合比例（让RF增强推理效果）
 
 # ===== Training Settings =====
 epochs: 1000
