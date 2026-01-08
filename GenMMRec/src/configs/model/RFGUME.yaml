@@ -9,17 +9,17 @@ learning_rate_scheduler: [0.96, 20]  # 更缓慢的衰减：每50步衰减4%
 # ===== GUME Parameters =====
 # Graph convolution layers
 n_ui_layers: 3              # Number of user-item graph convolution layers
-n_layers: 2                 # Number of modality-specific graph convolution layers
+
 knn_k: 10                   # K for KNN graph construction
 
 # Loss weights for GUME
 bm_loss: 0.01               # Behavior-modality alignment loss weight
-um_loss: 0.01               # User modality enhancement loss weight
-vt_loss: 0.1                # Vision-text alignment loss weight
+
+
 
 # Temperature parameters
-bm_temp: 0.4                # Temperature for behavior-modality InfoNCE
-um_temp: 0.1                # Temperature for user modality InfoNCE
+
+
 
 # Regularization
 reg_weight_1: 1e-05         # L2 regularization weight for embeddings
@@ -29,8 +29,8 @@ reg_weight_2: 0.1           # L2 regularization weight for noise
 use_rf: True                # Enable RF for extended_id_embeds generation (set False for ablation)
 
 # RF Network Architecture
-rf_hidden_dim: 256          # 隐藏层维度
-rf_n_layers: 4              # 网络层数
+rf_hidden_dim: 64           # 隐藏层维度（大数据集用64，小数据集可用256）
+rf_n_layers: 1              # 网络层数（大数据集用2，小数据集可用4）
 rf_dropout: 0.1             # Dropout率
 
 # RF Training & Sampling
@@ -44,7 +44,7 @@ rf_loss_weight: 0.1         # RF速度场损失权重（核心贡献点）
 contrast_loss_weight: 0.05  # 对比损失权重
 
 # RF Warmup - 渐进式启用RF
-rf_warmup_epochs: 5         # 前5个epoch不启用RF，让GUME预热
+rf_warmup_epochs: 1         # 前5个epoch不启用RF，让GUME预热
 
 # RF 训练模式
 rf_train_mode: 'auxiliary'  # 'auxiliary' = 仅辅助损失（推荐）, 'hybrid' = 混合embeddings
@@ -87,18 +87,18 @@ stopping_step: 10
 # Uncomment the section for your dataset:
 
 # # Baby dataset (default, already set above)
-# n_layers: 2
-# bm_temp: 0.4
-# um_loss: 0.01
-# um_temp: 0.1
-# vt_loss: 0.1
+# n_layers: 2                 # Number of modality-specific graph convolution layers
+# bm_temp: 0.4                # Temperature for behavior-modality InfoNCE
+# um_loss: 0.01               # User modality enhancement loss weight
+# um_temp: 0.1                # Temperature for user modality InfoNCE
+# vt_loss: 0.1                # Vision-text alignment loss weight
 
 # # Sports dataset
-# n_layers: 1
-# bm_temp: 0.2
-# um_loss: 0.01
-# um_temp: 0.1
-# vt_loss: 0.01
+n_layers: 1
+bm_temp: 0.2
+um_loss: 0.01
+um_temp: 0.1
+vt_loss: 0.01
 
 # # Clothing dataset
 # n_layers: 1
