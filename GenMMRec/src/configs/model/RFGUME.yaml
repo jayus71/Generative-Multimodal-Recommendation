@@ -1,57 +1,46 @@
 # RFGUME: Rectified Flow for GUME
-# Combining GUME's multimodal recommendation with Rectified Flow for extended_id_embeds generation
+# 使用Rectified Flow生成extended_id_embeds
 
+# hyper_parameters: ["rf_learning_rate", "rf_mix_ratio", "rf_inference_mix_ratio"]
 # ===== Base Settings (inherited from GUME) =====
 embedding_size: 64
 learning_rate: 0.001
-learning_rate_scheduler: [0.96, 20]  # 更缓慢的衰减：每50步衰减4%
+learning_rate_scheduler: [0.96, 20]
 
 # ===== GUME Parameters =====
-# Graph convolution layers
-n_ui_layers: 3              # Number of user-item graph convolution layers
-
+n_ui_layers: 3              # User-item graph convolution layers
 knn_k: 10                   # K for KNN graph construction
 
 # Loss weights for GUME
 bm_loss: 0.01               # Behavior-modality alignment loss weight
-
-
-
-# Temperature parameters
-
-
 
 # Regularization
 reg_weight_1: 1e-05         # L2 regularization weight for embeddings
 reg_weight_2: 0.1           # L2 regularization weight for noise
 
 # ===== Rectified Flow Parameters =====
-use_rf: True                # Enable RF for extended_id_embeds generation (set False for ablation)
+use_rf: True                # Enable RF (set False for ablation)
 
 # RF Network Architecture
-rf_hidden_dim: 64           # 隐藏层维度（大数据集用64，小数据集可用256）
-rf_n_layers: 1              # 网络层数（大数据集用2，小数据集可用4）
+rf_hidden_dim: 128          # 隐藏层维度
+rf_n_layers: 2              # 网络层数
 rf_dropout: 0.1             # Dropout率
 
-# RF Training & Sampling
-rf_sampling_steps: 10       # ODE采样步数（推理质量）
-                            # - 5 steps: 快速
-                            # - 10 steps: 推荐
-                            # - 20+ steps: 高质量
-
-# RF Loss Weights - 合理的权重让RF有贡献
-rf_loss_weight: 0.1         # RF速度场损失权重（核心贡献点）
-contrast_loss_weight: 0.05  # 对比损失权重
+# RF Training
+# rf_learning_rate:  [0.001, 0.002, 0.0001, 0.00001]
+rf_learning_rate: 0.0001
+     # RF模块独立学习率
+rf_sampling_steps: 5        # ODE采样步数
 
 # RF Warmup - 渐进式启用RF
-rf_warmup_epochs: 1         # 前5个epoch不启用RF，让GUME预热
-
-# RF 训练模式
-rf_train_mode: 'auxiliary'  # 'auxiliary' = 仅辅助损失（推荐）, 'hybrid' = 混合embeddings
+rf_warmup_epochs: 5         # 前N个epoch不启用RF，让GUME预热
 
 # RF 混合策略
-rf_mix_ratio: 0.1           # 训练时的混合比例（仅hybrid模式使用）
-rf_inference_mix_ratio: 0.2 # 推理时的混合比例（让RF增强推理效果）
+# rf_mix_ratio: [0.1, 0.15, 0.2]           # 训练时的混合比例 (0=纯GUME, 1=纯RF)
+# rf_inference_mix_ratio: [0.2, 0.25, 0.3] # 推理时的混合比例
+rf_mix_ratio: 0.1
+rf_inference_mix_ratio: 0.2
+
 
 # ===== Training Settings =====
 epochs: 1000
@@ -59,46 +48,20 @@ train_batch_size: 2048
 eval_batch_size: 4096
 stopping_step: 10
 
-# ===== Ablation Study Configurations =====
-# Uncomment the following sections for different ablation experiments:
-
-# # Experiment 1: Disable RF (back to original GUME)
-# use_rf: False
-
-# # Experiment 2: Fast 1-step generation
-# rf_sampling_steps: 1
-
-# # Experiment 3: High-quality 100-step generation
-# rf_sampling_steps: 100
-
-# # Experiment 4: Adjust loss weights
-# rf_loss_weight: 0.5
-# contrast_loss_weight: 0.5
-
-# # Experiment 5: Larger RF network
-# rf_hidden_dim: 512
-# rf_n_layers: 4
-
-# # Experiment 6: Smaller RF network
-# rf_hidden_dim: 128
-# rf_n_layers: 2
-
 # ===== Dataset-Specific Configurations =====
-# Uncomment the section for your dataset:
+# Sports dataset (default)
+# n_layers: 1
+# bm_temp: 0.2
+# um_loss: 0.01
+# um_temp: 0.1
+# vt_loss: 0.01
 
-# # Baby dataset (default, already set above)
-# n_layers: 2                 # Number of modality-specific graph convolution layers
-# bm_temp: 0.4                # Temperature for behavior-modality InfoNCE
-# um_loss: 0.01               # User modality enhancement loss weight
-# um_temp: 0.1                # Temperature for user modality InfoNCE
-# vt_loss: 0.1                # Vision-text alignment loss weight
-
-# # Sports dataset
-n_layers: 1
-bm_temp: 0.2
+# Baby dataset
+n_layers: 2
+bm_temp: 0.4
 um_loss: 0.01
 um_temp: 0.1
-vt_loss: 0.01
+vt_loss: 0.1
 
 # # Clothing dataset
 # n_layers: 1
@@ -106,10 +69,4 @@ vt_loss: 0.01
 # um_loss: 0.1
 # um_temp: 0.2
 # vt_loss: 0.001
-
-# # Electronics dataset
-# n_layers: 1
-# bm_temp: 0.2
-# um_loss: 0.1
-# um_temp: 0.2
-# vt_loss: 0.1
+# vt_loss: 0.001
