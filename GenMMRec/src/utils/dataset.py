@@ -49,10 +49,60 @@ class RecDataset(object):
 
     def load_inter_graph(self, file_name):
         inter_file = os.path.join(self.dataset_path, file_name)
+        # Load timestamp if available in config
+        time_field = self.config['TIME_FIELD'].split(':')[0] if 'TIME_FIELD' in self.config else None
         cols = [self.uid_field, self.iid_field, self.splitting_label]
+        if time_field:
+            cols.append(time_field)
         self.df = pd.read_csv(inter_file, usecols=cols, sep=self.config['field_separator'])
         if not self.df.columns.isin(cols).all():
             raise ValueError('File {} lost some required columns.'.format(inter_file))
+
+    def get_temporal_split_interactions(self, temporal_ratio=0.8):
+        """
+        Split interactions per user based on timestamp into historical/future sets
+
+        Args:
+            temporal_ratio: Ratio of time range for historical (0.8 = earliest 80%)
+                           Set to 0 to disable temporal encoding
+
+        Returns:
+            historical_df: DataFrame with historical interactions
+            future_df: DataFrame with future interactions
+            time_ranges: Dict mapping user_id -> (min_time, max_time, split_time)
+        """
+        if temporal_ratio == 0:
+            return self.df, pd.DataFrame(), {}
+
+        time_field = self.config['TIME_FIELD'].split(':')[0]
+        historical_rows = []
+        future_rows = []
+        time_ranges = {}
+
+        for user_id, user_df in self.df.groupby(self.uid_field):
+            timestamps = user_df[time_field].values
+            min_time = timestamps.min()
+            max_time = timestamps.max()
+            time_range = max_time - min_time
+
+            # Handle edge case: single interaction or same timestamp
+            if time_range == 0:
+                split_time = max_time
+                historical_rows.append(user_df)
+                time_ranges[user_id] = (min_time, max_time, split_time)
+                continue
+
+            split_time = min_time + temporal_ratio * time_range
+            time_ranges[user_id] = (min_time, max_time, split_time)
+
+            historical_mask = timestamps <= split_time
+            historical_rows.append(user_df[historical_mask])
+            future_rows.append(user_df[~historical_mask])
+
+        historical_df = pd.concat(historical_rows, ignore_index=True)
+        future_df = pd.concat(future_rows, ignore_index=True) if future_rows else pd.DataFrame()
+
+        return historical_df, future_df, time_ranges
 
     def split(self):
         dfs = []
