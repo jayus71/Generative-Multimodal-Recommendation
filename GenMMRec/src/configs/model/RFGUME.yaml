@@ -1,33 +1,105 @@
+# RFGUME: Rectified Flow for GUME
+# 使用Rectified Flow生成extended_id_embeds
+
+hyper_parameters: ["rf_loss_weight"]
+# ===== Base Settings (inherited from GUME) =====
 embedding_size: 64
 learning_rate: 0.001
-learning_rate_scheduler:
-- 0.96
-- 20
-n_ui_layers: 3
-knn_k: 10
-bm_loss: 0.01
-reg_weight_1: 1e-05
-reg_weight_2: 0.1
-use_rf: true
-rf_hidden_dim: 128
-rf_n_layers: 2
-rf_dropout: 0.1
+learning_rate_scheduler: [0.96, 20]
+
+# ===== GUME Parameters =====
+n_ui_layers: 3              # User-item graph convolution layers
+knn_k: 10                   # K for KNN graph construction
+
+# Loss weights for GUME
+bm_loss: 0.01               # Behavior-modality alignment loss weight
+
+# Regularization
+reg_weight_1: 1e-05         # L2 regularization weight for embeddings
+reg_weight_2: 0.1           # L2 regularization weight for noise
+
+# ===== Rectified Flow Parameters =====
+use_rf: True                # Enable RF (set False for ablation)
+
+# RF Network Architecture
+rf_hidden_dim: 128          # 隐藏层维度
+rf_n_layers: 2              # 网络层数
+rf_dropout: 0.1             # Dropout率
+
+# RF Training
+# rf_learning_rate:  [0.001, 0.002, 0.0001, 0.00001]
 rf_learning_rate: 0.0001
-rf_sampling_steps: 5
-rf_warmup_epochs: 5
+     # RF模块独立学习率
+rf_sampling_steps: 5        # ODE采样步数
+
+# RF Warmup - 渐进式启用RF
+rf_warmup_epochs: 5         # 前N个epoch不启用RF，让GUME预热
+
+# RF 混合策略
+# rf_mix_ratio: [0.1, 0.15, 0.2]           # 训练时的混合比例 (0=纯GUME, 1=纯RF)
+# rf_inference_mix_ratio: [0.2, 0.25, 0.3] # 推理时的混合比例
 rf_mix_ratio: 0.1
 rf_inference_mix_ratio: 0.2
+
+
+# ===== Training Settings =====
 epochs: 1000
 train_batch_size: 2048
 eval_batch_size: 4096
 stopping_step: 10
-n_layers: 1
-bm_temp: 0.2
-um_loss: 0.1
-um_temp: 0.2
-vt_loss: 0.001
-temporal_ratio: 0.8
-rf_reflow_mode: 1-step
-rf_reflow_epoch: 50
-rf_loss_weight: 0.1
-rf_contrast_temp: 0.2
+
+# ===== Dataset-Specific Configurations =====
+# Sports dataset (default)
+# n_layers: 1
+# bm_temp: 0.2
+# um_loss: 0.01
+# um_temp: 0.1
+# vt_loss: 0.01
+
+# Baby dataset
+n_layers: 2
+bm_temp: 0.4
+um_loss: 0.01
+um_temp: 0.1
+vt_loss: 0.1
+
+# # Clothing dataset
+# n_layers: 1
+# bm_temp: 0.2
+# um_loss: 0.1
+# um_temp: 0.2
+# vt_loss: 0.001
+# vt_loss: 0.001
+
+# ===== Temporal Graph Augmentation =====
+temporal_ratio: 0.8              # 0.8 = earliest 80% time is historical
+                                 # 0.0 = disable temporal (backward compatible)
+
+# ===== Reflow Configuration =====
+rf_reflow_mode: '1-step'        # '1-step': normal RF training
+                                # '2-step': stage 1 (multi-step) + stage 2 (reflow, 1-step)
+
+rf_reflow_epoch: 50             # Epoch to switch from 1-RF to 2-RF (if mode='2-step')
+
+rf_loss_weight: [0.1, 0.15, 0.2]             # Weight for InfoNCE contrastive loss
+                                # Added to velocity loss: total = rf_loss + weight * cl_loss
+
+rf_contrast_temp: 0.2           # Temperature for RF contrastive loss
+
+# ===== Recommended Configurations =====
+# Baseline (no temporal):
+#   temporal_ratio: 0.0
+#   rf_reflow_mode: '1-step'
+#   rf_sampling_steps: 5
+#
+# Temporal + 1-step RF:
+#   temporal_ratio: 0.8
+#   rf_reflow_mode: '1-step'
+#   rf_sampling_steps: 5
+#
+# Temporal + 2-step RF (best performance):
+#   temporal_ratio: 0.8
+#   rf_reflow_mode: '2-step'
+#   rf_reflow_epoch: 50
+#   rf_sampling_steps: 5  # Stage 1
+#   # Stage 2 uses 1 step automatically
