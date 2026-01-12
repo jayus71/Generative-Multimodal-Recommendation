@@ -22,11 +22,14 @@ class SimpleVelocityNet(nn.Module):
         condition_dim: 条件维度（image + text）
     """
 
-    def __init__(self, embedding_dim, hidden_dim, n_layers, dropout, condition_dim):
+    def __init__(self, embedding_dim, hidden_dim, n_layers, dropout, condition_dim,
+                 user_guidance_scale=0.2, guidance_decay_power=2.0):
         super().__init__()
 
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
+        self.user_guidance_scale = user_guidance_scale
+        self.guidance_decay_power = guidance_decay_power
 
         # 时间嵌入层（使用正弦位置编码）
         self.time_embed = nn.Sequential(
@@ -66,12 +69,13 @@ class SimpleVelocityNet(nn.Module):
             nn.Linear(hidden_dim, embedding_dim),
         )
 
-    def forward(self, x, t, conditions):
+    def forward(self, x, t, conditions, user_prior=None):
         """
         Args:
             x: 当前状态 X_t, shape (batch, embedding_dim)
             t: 时间步, shape (batch, 1)
             conditions: 条件特征（image + text）, shape (batch, condition_dim)
+            user_prior: 用户特定兴趣指导, shape (batch, embedding_dim) [NEW]
 
         Returns:
             velocity: 速度 v(x, t, c), shape (batch, embedding_dim)
@@ -94,6 +98,14 @@ class SimpleVelocityNet(nn.Module):
 
         # 输出速度
         v = self.output_proj(h)
+
+        # [NEW] 添加用户兴趣先验指导（仅训练模式）
+        if self.training and user_prior is not None:
+            # 时间衰减权重: lambda_1(t) = (1-t)^power
+            lambda_1 = (1 - t) ** self.guidance_decay_power  # shape: (batch, 1)
+
+            # 添加指导项
+            v = v + lambda_1 * self.user_guidance_scale * user_prior
 
         return v
 
@@ -152,7 +164,8 @@ class RFExtendedIdGenerator(nn.Module):
     这个模块独立于GUME的其他部分，便于进行消融实验
     """
 
-    def __init__(self, embedding_dim, hidden_dim, n_layers, dropout):
+    def __init__(self, embedding_dim, hidden_dim, n_layers, dropout,
+                 user_guidance_scale=0.2, guidance_decay_power=2.0):
         super().__init__()
 
         self.embedding_dim = embedding_dim
@@ -164,11 +177,13 @@ class RFExtendedIdGenerator(nn.Module):
             n_layers=n_layers,
             dropout=dropout,
             condition_dim=embedding_dim * 2,  # image + text conditions
+            user_guidance_scale=user_guidance_scale,
+            guidance_decay_power=guidance_decay_power,
         )
 
-    def rectified_flow_loss(self, target_embeds, image_cond, text_cond):
+    def rectified_flow_loss(self, target_embeds, image_cond, text_cond, user_prior=None):
         """
-        计算Rectified Flow损失
+        计算Rectified Flow损失（带有可选的用户兴趣先验指导）
 
         Loss = E_t [||v(X_t, t, c) - (X1 - X0)||^2]
         其中 X_t = t*X1 + (1-t)*X0
@@ -177,6 +192,7 @@ class RFExtendedIdGenerator(nn.Module):
             target_embeds: 目标的extended_id_embeds (X1), shape (batch, embedding_dim)
             image_cond: explicit_image_item 条件, shape (batch, embedding_dim)
             text_cond: explicit_text_item 条件, shape (batch, embedding_dim)
+            user_prior: 用户兴趣先验指导 (Z_u - Z_hat), shape (batch, embedding_dim) [NEW]
 
         Returns:
             rf_loss: Rectified Flow损失
@@ -198,8 +214,8 @@ class RFExtendedIdGenerator(nn.Module):
         # 拼接条件（image + text）
         conditions = torch.cat([image_cond, text_cond], dim=-1)
 
-        # 预测速度: v(X_t, t, conditions)
-        v_pred = self.velocity_net(X_t, t, conditions)
+        # [MODIFIED] 预测速度: v(X_t, t, conditions, user_prior)
+        v_pred = self.velocity_net(X_t, t, conditions, user_prior=user_prior)
 
         # 目标速度: X1 - X0（直线方向）
         v_target = X1 - X0
@@ -308,6 +324,17 @@ class RFGUME(GUME):
             config["rf_learning_rate"] if "rf_learning_rate" in config else 0.001
         )
 
+        # 用户先验指导参数
+        self.use_user_guidance = (
+            config["use_user_guidance"] if "use_user_guidance" in config else True
+        )
+        self.user_guidance_scale = (
+            config["user_guidance_scale"] if "user_guidance_scale" in config else 0.2
+        )
+        self.guidance_decay_power = (
+            config["guidance_decay_power"] if "guidance_decay_power" in config else 2.0
+        )
+
         if self.use_rf:
             # 使用单个统一的RF生成器处理用户和物品
             self.rf_generator = RFExtendedIdGenerator(
@@ -315,6 +342,8 @@ class RFGUME(GUME):
                 hidden_dim=self.rf_hidden_dim,
                 n_layers=self.rf_n_layers,
                 dropout=self.rf_dropout,
+                user_guidance_scale=self.user_guidance_scale,
+                guidance_decay_power=self.guidance_decay_power,
             )
 
             # RF独立优化器
@@ -331,7 +360,9 @@ class RFGUME(GUME):
                 f"sampling_steps={self.rf_sampling_steps}, "
                 f"warmup_epochs={self.rf_warmup_epochs}, "
                 f"rf_lr={self.rf_learning_rate}, "
-                f"mix_ratio(train/infer)={self.rf_mix_ratio}/{self.rf_inference_mix_ratio}"
+                f"mix_ratio(train/infer)={self.rf_mix_ratio}/{self.rf_inference_mix_ratio}, "
+                f"user_guidance={self.use_user_guidance}, "
+                f"guidance_scale={self.user_guidance_scale}, decay_power={self.guidance_decay_power}"
             )
 
     def set_epoch(self, epoch):
@@ -398,11 +429,31 @@ class RFGUME(GUME):
             text_cond_detached = explicit_text_embeds.detach()
             target_detached = extended_id_embeds_target.detach()
 
-            # 计算RF速度场损失
+            # [NEW] 计算用户兴趣先验
+            # Z_u: 用户特定的多模态兴趣表示
+            Z_u = explicit_image_embeds[:self.n_users] + explicit_text_embeds[:self.n_users]
+
+            # Z_hat: 通用兴趣表示（所有用户的平均值）
+            Z_hat = Z_u.mean(dim=0, keepdim=True)
+
+            # 用户先验: 独特的用户兴趣
+            user_prior = Z_u - Z_hat  # shape: (n_users, embedding_dim)
+
+            # 对于物品，不使用个性化指导（零指导）
+            item_prior = torch.zeros(self.n_items, self.embedding_dim).to(Z_u.device)
+
+            # 合并用户和物品先验
+            full_prior = torch.cat([user_prior, item_prior], dim=0)  # shape: (n_users+n_items, embedding_dim)
+
+            # Detach 用于 RF 训练
+            full_prior_detached = full_prior.detach()
+
+            # [MODIFIED] 计算RF速度场损失（带有用户先验）
             rf_loss = self.rf_generator.rectified_flow_loss(
                 target_detached,
                 image_cond_detached,
                 text_cond_detached,
+                user_prior=full_prior_detached,
             )
 
             # 生成RF embeddings
@@ -414,7 +465,7 @@ class RFGUME(GUME):
 
             # 对比损失：约束RF生成的向量接近原始目标向量
             # 使用MSE损失作为简单有效的约束
-            cl_loss = F.mse_loss(rf_generated_embeds, target_detached)
+            cl_loss = self.InfoNCE(rf_generated_embeds, target_detached, self.rf_contrast_temp)
 
             # 总RF损失 = 速度场损失 + MSE约束
             total_rf_loss = rf_loss + cl_loss
