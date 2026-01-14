@@ -1,0 +1,11 @@
+RF-GUME 先验知识指导消融实验
+============================================================
+开始时间: 2026-01-13 13:59:17.149353
+数据集: sports
+GPU: 默认
+
+实验列表:
+  - 1_baseline_no_guidance: Baseline: 无任何先验指导
+  - 2_user_prior_only: 仅用户兴趣先验指导
+  - 3_cosine_gradient_only: 仅余弦相似度梯度指导
+  - 4_both_guidances: 两种指导都启用

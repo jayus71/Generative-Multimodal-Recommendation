@@ -1,0 +1,20 @@
+Experiment: 1_baseline_no_guidance
+Description: Baseline: 无任何先验指导
+Dataset: baby
+use_user_guidance: False
+use_cosine_guidance: False
+Started at: 2026-01-13 16:44:38.205419
+============================================================
+
+Traceback (most recent call last):
+  File "/root/autodl-tmp/Generative-Multimodal-Recommendation/Generative-Multimodal-Recommendation/GenMMRec/src/main.py", line 12, in <module>
+    from utils.quick_start import quick_start
+  File "/root/autodl-tmp/Generative-Multimodal-Recommendation/Generative-Multimodal-Recommendation/GenMMRec/src/utils/quick_start.py", line 10, in <module>
+    from utils.dataset import RecDataset
+  File "/root/autodl-tmp/Generative-Multimodal-Recommendation/Generative-Multimodal-Recommendation/GenMMRec/src/utils/dataset.py", line 14, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+
+============================================================
+Finished at: 2026-01-13 16:44:38.249223
+Exit code: 1

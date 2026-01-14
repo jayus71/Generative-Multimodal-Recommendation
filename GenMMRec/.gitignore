@@ -135,4 +135,4 @@ data/
 .pdf
 wandb/
 comparison_logs/
-log/
+!src/log/ablation_results_all_datasets_*/**/*.log

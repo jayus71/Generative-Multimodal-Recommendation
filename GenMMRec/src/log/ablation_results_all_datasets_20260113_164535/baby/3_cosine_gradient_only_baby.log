@@ -1,0 +1,1476 @@
+Experiment: 3_cosine_gradient_only
+Description: 仅余弦相似度梯度指导
+Dataset: baby
+use_user_guidance: False
+use_cosine_guidance: True
+Started at: 2026-01-13 17:56:09.266413
+============================================================
+
+13 Jan 17:56    INFO ██Server: 	autodl-container-839a469321-45eb4345
+13 Jan 17:56    INFO ██Dir: 	/root/autodl-tmp/Generative-Multimodal-Recommendation/Generative-Multimodal-Recommendation/GenMMRec/src
+
+13 Jan 17:56    INFO 
+gpu_id=0
+use_gpu=True
+seed=[999]
+data_path=../data/
+inter_splitting_label=x_label
+filter_out_cod_start_users=True
+is_multimodal_model=True
+checkpoint_dir=saved
+save_recommended_topk=True
+recommend_topk=recommend_topk/
+embedding_size=64
+weight_decay=0.0
+req_training=True
+epochs=1000
+stopping_step=10
+train_batch_size=2048
+learner=adam
+learning_rate=0.001
+learning_rate_scheduler=[0.96, 20]
+eval_step=1
+training_neg_sample_num=1
+use_neg_sampling=True
+use_full_sampling=False
+NEG_PREFIX=neg__
+USER_ID_FIELD=userID
+ITEM_ID_FIELD=itemID
+TIME_FIELD=timestamp
+field_separator=	
+metrics=['Recall', 'NDCG', 'Precision', 'MAP']
+topk=[5, 10, 20, 50]
+valid_metric=Recall@20
+eval_batch_size=4096
+use_raw_features=False
+max_txt_len=32
+max_img_size=256
+vocab_size=30522
+type_vocab_size=2
+hidden_size=4
+pad_token_id=0
+max_position_embeddings=512
+layer_norm_eps=1e-12
+hidden_dropout_prob=0.1
+end2end=False
+hyper_parameters=['seed', 'rf_loss_weight']
+inter_file_name=baby.inter
+vision_feature_file=image_feat.npy
+text_feature_file=text_feat.npy
+user_graph_dict_file=user_graph_dict.npy
+n_ui_layers=3
+knn_k=10
+bm_loss=0.01
+reg_weight_1=1e-05
+reg_weight_2=0.1
+use_rf=True
+rf_hidden_dim=128
+rf_n_layers=2
+rf_dropout=0.1
+rf_learning_rate=0.0001
+rf_sampling_steps=10
+rf_loss_weight=[0.1, 0.15, 0.2]
+use_user_guidance=False
+user_guidance_scale=0.2
+guidance_decay_power=2.0
+use_cosine_guidance=True
+cosine_guidance_scale=0.1
+cosine_decay_power=2.0
+rf_warmup_epochs=5
+rf_mix_ratio=0.1
+rf_inference_mix_ratio=0.2
+n_layers=2
+bm_temp=0.4
+um_loss=0.01
+um_temp=0.1
+vt_loss=0.1
+model=RFGUME
+dataset=baby
+valid_metric_bigger=True
+device=cuda
+
+
+13 Jan 17:56    INFO baby
+The number of users: 19445
+Average actions of users: 8.269066598097197
+The number of items: 7050
+Average actions of items: 22.807375886524824
+The number of inters: 160792
+The sparsity of the dataset: 99.8827082752043%
+13 Jan 17:56    INFO 
+====Training====
+baby
+The number of users: 19445
+Average actions of users: 6.096734379017742
+The number of items: 7047
+Average actions of items: 16.82290336313325
+The number of inters: 118551
+The sparsity of the dataset: 99.9134846831415%
+13 Jan 17:56    INFO 
+====Validation====
+baby
+The number of users: 19445
+Average actions of users: 1.0572897917202366
+The number of items: 5483
+Average actions of items: 3.749589640707642
+The number of inters: 20559
+The sparsity of the dataset: 99.98071694707788%
+13 Jan 17:56    INFO 
+====Testing====
+baby
+The number of users: 19445
+Average actions of users: 1.1150424273592183
+The number of items: 5549
+Average actions of items: 3.907370697422959
+The number of inters: 21682
+The sparsity of the dataset: 99.97990552482683%
+13 Jan 17:56    INFO 
+
+=================================
+
+
+13 Jan 17:56    INFO =========1/3: Parameters:['seed', 'rf_loss_weight']=(999, 0.1)=======
+/root/autodl-tmp/Generative-Multimodal-Recommendation/Generative-Multimodal-Recommendation/GenMMRec/src/models/gume.py:188: RuntimeWarning: divide by zero encountered in power
+  d_inv = np.power(rowsum, -0.5).flatten()
+13 Jan 17:56    INFO RFGUME(
+  (user_embedding): Embedding(19445, 64)
+  (item_id_embedding): Embedding(7050, 64)
+  (extended_image_user): Embedding(19445, 64)
+  (extended_text_user): Embedding(19445, 64)
+  (image_embedding): Embedding(7050, 4096)
+  (text_embedding): Embedding(7050, 384)
+  (image_reduce_dim): Linear(in_features=4096, out_features=64, bias=True)
+  (image_trans_dim): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Sigmoid()
+  )
+  (image_space_trans): Sequential(
+    (0): Linear(in_features=4096, out_features=64, bias=True)
+    (1): Sequential(
+      (0): Linear(in_features=64, out_features=64, bias=True)
+      (1): Sigmoid()
+    )
+  )
+  (text_reduce_dim): Linear(in_features=384, out_features=64, bias=True)
+  (text_trans_dim): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Sigmoid()
+  )
+  (text_space_trans): Sequential(
+    (0): Linear(in_features=384, out_features=64, bias=True)
+    (1): Sequential(
+      (0): Linear(in_features=64, out_features=64, bias=True)
+      (1): Sigmoid()
+    )
+  )
+  (separate_coarse): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Tanh()
+    (2): Linear(in_features=64, out_features=1, bias=False)
+  )
+  (softmax): Softmax(dim=-1)
+  (image_behavior): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Sigmoid()
+  )
+  (text_behavior): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Sigmoid()
+  )
+  (rf_generator): RFExtendedIdGenerator(
+    (velocity_net): SimpleVelocityNet(
+      (time_embed): Sequential(
+        (0): SinusoidalPositionEmbedding()
+        (1): Linear(in_features=64, out_features=128, bias=True)
+        (2): SiLU()
+        (3): Dropout(p=0.1, inplace=False)
+      )
+      (condition_encoder): Sequential(
+        (0): Linear(in_features=128, out_features=128, bias=True)
+        (1): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+        (2): SiLU()
+        (3): Dropout(p=0.1, inplace=False)
+      )
+      (input_proj): Sequential(
+        (0): Linear(in_features=64, out_features=128, bias=True)
+        (1): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+        (2): SiLU()
+        (3): Dropout(p=0.1, inplace=False)
+      )
+      (res_blocks): ModuleList(
+        (0-1): 2 x ResidualBlock(
+          (net): Sequential(
+            (0): Linear(in_features=128, out_features=128, bias=True)
+            (1): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+            (2): SiLU()
+            (3): Dropout(p=0.1, inplace=False)
+            (4): Linear(in_features=128, out_features=128, bias=True)
+            (5): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+          )
+          (skip): Identity()
+        )
+      )
+      (output_proj): Sequential(
+        (0): Linear(in_features=128, out_features=128, bias=True)
+        (1): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+        (2): SiLU()
+        (3): Dropout(p=0.1, inplace=False)
+        (4): Linear(in_features=128, out_features=64, bias=True)
+      )
+    )
+  )
+)
+Trainable parameters: 36202112
+13 Jan 17:56    INFO epoch 0 training [time: 9.78s, train loss: 49.0475]
+13 Jan 17:56    INFO epoch 0 evaluating [time: 2.87s, valid_score: 0.048500]
+13 Jan 17:56    INFO valid result: 
+recall@5: 0.0214    recall@10: 0.0324    recall@20: 0.0485    recall@50: 0.0734    ndcg@5: 0.0146    ndcg@10: 0.0181    ndcg@20: 0.0222    ndcg@50: 0.0272    precision@5: 0.0044    precision@10: 0.0034    precision@20: 0.0025    precision@50: 0.0015    map@5: 0.0122    map@10: 0.0136    map@20: 0.0147    map@50: 0.0155    
+13 Jan 17:56    INFO test result: 
+recall@5: 0.0203    recall@10: 0.0320    recall@20: 0.0485    recall@50: 0.0759    ndcg@5: 0.0138    ndcg@10: 0.0177    ndcg@20: 0.0219    ndcg@50: 0.0275    precision@5: 0.0045    precision@10: 0.0035    precision@20: 0.0027    precision@50: 0.0017    map@5: 0.0114    map@10: 0.0129    map@20: 0.0141    map@50: 0.0149    
+13 Jan 17:56    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 17:56    INFO epoch 1 training [time: 9.45s, train loss: 47.6982]
+13 Jan 17:56    INFO epoch 1 evaluating [time: 2.89s, valid_score: 0.047300]
+13 Jan 17:56    INFO valid result: 
+recall@5: 0.0217    recall@10: 0.0316    recall@20: 0.0473    recall@50: 0.0707    ndcg@5: 0.0148    ndcg@10: 0.0180    ndcg@20: 0.0220    ndcg@50: 0.0267    precision@5: 0.0045    precision@10: 0.0033    precision@20: 0.0025    precision@50: 0.0015    map@5: 0.0125    map@10: 0.0137    map@20: 0.0148    map@50: 0.0155    
+13 Jan 17:56    INFO test result: 
+recall@5: 0.0202    recall@10: 0.0327    recall@20: 0.0462    recall@50: 0.0723    ndcg@5: 0.0135    ndcg@10: 0.0176    ndcg@20: 0.0211    ndcg@50: 0.0263    precision@5: 0.0044    precision@10: 0.0036    precision@20: 0.0025    precision@50: 0.0016    map@5: 0.0110    map@10: 0.0127    map@20: 0.0136    map@50: 0.0144    
+13 Jan 17:57    INFO epoch 2 training [time: 9.39s, train loss: 47.5511]
+13 Jan 17:57    INFO epoch 2 evaluating [time: 3.04s, valid_score: 0.046900]
+13 Jan 17:57    INFO valid result: 
+recall@5: 0.0223    recall@10: 0.0320    recall@20: 0.0469    recall@50: 0.0721    ndcg@5: 0.0152    ndcg@10: 0.0184    ndcg@20: 0.0222    ndcg@50: 0.0272    precision@5: 0.0046    precision@10: 0.0033    precision@20: 0.0024    precision@50: 0.0015    map@5: 0.0128    map@10: 0.0140    map@20: 0.0151    map@50: 0.0159    
+13 Jan 17:57    INFO test result: 
+recall@5: 0.0205    recall@10: 0.0329    recall@20: 0.0464    recall@50: 0.0730    ndcg@5: 0.0136    ndcg@10: 0.0177    ndcg@20: 0.0211    ndcg@50: 0.0265    precision@5: 0.0044    precision@10: 0.0036    precision@20: 0.0025    precision@50: 0.0016    map@5: 0.0111    map@10: 0.0127    map@20: 0.0136    map@50: 0.0145    
+13 Jan 17:57    INFO epoch 3 training [time: 9.41s, train loss: 47.4647]
+13 Jan 17:57    INFO epoch 3 evaluating [time: 2.92s, valid_score: 0.048400]
+13 Jan 17:57    INFO valid result: 
+recall@5: 0.0228    recall@10: 0.0338    recall@20: 0.0484    recall@50: 0.0742    ndcg@5: 0.0155    ndcg@10: 0.0190    ndcg@20: 0.0227    ndcg@50: 0.0279    precision@5: 0.0047    precision@10: 0.0035    precision@20: 0.0025    precision@50: 0.0016    map@5: 0.0129    map@10: 0.0143    map@20: 0.0153    map@50: 0.0161    
+13 Jan 17:57    INFO test result: 
+recall@5: 0.0212    recall@10: 0.0333    recall@20: 0.0483    recall@50: 0.0752    ndcg@5: 0.0142    ndcg@10: 0.0182    ndcg@20: 0.0221    ndcg@50: 0.0275    precision@5: 0.0046    precision@10: 0.0036    precision@20: 0.0026    precision@50: 0.0017    map@5: 0.0116    map@10: 0.0132    map@20: 0.0143    map@50: 0.0151    
+13 Jan 17:57    INFO epoch 4 training [time: 9.30s, train loss: 47.3896]
+13 Jan 17:57    INFO epoch 4 evaluating [time: 2.87s, valid_score: 0.051500]
+13 Jan 17:57    INFO valid result: 
+recall@5: 0.0239    recall@10: 0.0352    recall@20: 0.0515    recall@50: 0.0784    ndcg@5: 0.0162    ndcg@10: 0.0199    ndcg@20: 0.0240    ndcg@50: 0.0294    precision@5: 0.0050    precision@10: 0.0037    precision@20: 0.0027    precision@50: 0.0016    map@5: 0.0135    map@10: 0.0150    map@20: 0.0161    map@50: 0.0170    
+13 Jan 17:57    INFO test result: 
+recall@5: 0.0226    recall@10: 0.0343    recall@20: 0.0506    recall@50: 0.0800    ndcg@5: 0.0151    ndcg@10: 0.0189    ndcg@20: 0.0231    ndcg@50: 0.0291    precision@5: 0.0049    precision@10: 0.0037    precision@20: 0.0028    precision@50: 0.0018    map@5: 0.0123    map@10: 0.0138    map@20: 0.0150    map@50: 0.0159    
+13 Jan 17:57    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 17:57    INFO epoch 5 training [time: 9.49s, train loss: 47.3898]
+13 Jan 17:57    INFO epoch 5 evaluating [time: 3.21s, valid_score: 0.030600]
+13 Jan 17:57    INFO valid result: 
+recall@5: 0.0123    recall@10: 0.0194    recall@20: 0.0306    recall@50: 0.0503    ndcg@5: 0.0077    ndcg@10: 0.0100    ndcg@20: 0.0128    ndcg@50: 0.0167    precision@5: 0.0025    precision@10: 0.0020    precision@20: 0.0016    precision@50: 0.0011    map@5: 0.0061    map@10: 0.0070    map@20: 0.0078    map@50: 0.0084    
+13 Jan 17:57    INFO test result: 
+recall@5: 0.0120    recall@10: 0.0201    recall@20: 0.0306    recall@50: 0.0523    ndcg@5: 0.0077    ndcg@10: 0.0104    ndcg@20: 0.0131    ndcg@50: 0.0174    precision@5: 0.0026    precision@10: 0.0022    precision@20: 0.0017    precision@50: 0.0011    map@5: 0.0062    map@10: 0.0072    map@20: 0.0079    map@50: 0.0086    
+13 Jan 17:58    INFO epoch 6 training [time: 9.41s, train loss: 46.5337]
+13 Jan 17:58    INFO epoch 6 evaluating [time: 3.10s, valid_score: 0.046300]
+13 Jan 17:58    INFO valid result: 
+recall@5: 0.0185    recall@10: 0.0299    recall@20: 0.0463    recall@50: 0.0767    ndcg@5: 0.0123    ndcg@10: 0.0159    ndcg@20: 0.0201    ndcg@50: 0.0262    precision@5: 0.0039    precision@10: 0.0031    precision@20: 0.0024    precision@50: 0.0016    map@5: 0.0100    map@10: 0.0115    map@20: 0.0126    map@50: 0.0136    
+13 Jan 17:58    INFO test result: 
+recall@5: 0.0181    recall@10: 0.0291    recall@20: 0.0440    recall@50: 0.0751    ndcg@5: 0.0118    ndcg@10: 0.0154    ndcg@20: 0.0192    ndcg@50: 0.0255    precision@5: 0.0040    precision@10: 0.0032    precision@20: 0.0024    precision@50: 0.0017    map@5: 0.0094    map@10: 0.0109    map@20: 0.0119    map@50: 0.0129    
+13 Jan 17:58    INFO epoch 7 training [time: 9.42s, train loss: 45.4927]
+13 Jan 17:58    INFO epoch 7 evaluating [time: 3.00s, valid_score: 0.061500]
+13 Jan 17:58    INFO valid result: 
+recall@5: 0.0272    recall@10: 0.0416    recall@20: 0.0615    recall@50: 0.1003    ndcg@5: 0.0183    ndcg@10: 0.0230    ndcg@20: 0.0280    ndcg@50: 0.0358    precision@5: 0.0057    precision@10: 0.0043    precision@20: 0.0032    precision@50: 0.0021    map@5: 0.0152    map@10: 0.0171    map@20: 0.0184    map@50: 0.0197    
+13 Jan 17:58    INFO test result: 
+recall@5: 0.0259    recall@10: 0.0428    recall@20: 0.0633    recall@50: 0.1043    ndcg@5: 0.0169    ndcg@10: 0.0224    ndcg@20: 0.0277    ndcg@50: 0.0361    precision@5: 0.0057    precision@10: 0.0046    precision@20: 0.0035    precision@50: 0.0023    map@5: 0.0136    map@10: 0.0158    map@20: 0.0172    map@50: 0.0185    
+13 Jan 17:58    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 17:58    INFO epoch 8 training [time: 9.33s, train loss: 44.0349]
+13 Jan 17:58    INFO epoch 8 evaluating [time: 3.21s, valid_score: 0.072900]
+13 Jan 17:58    INFO valid result: 
+recall@5: 0.0311    recall@10: 0.0476    recall@20: 0.0729    recall@50: 0.1239    ndcg@5: 0.0209    ndcg@10: 0.0263    ndcg@20: 0.0327    ndcg@50: 0.0429    precision@5: 0.0065    precision@10: 0.0050    precision@20: 0.0038    precision@50: 0.0026    map@5: 0.0173    map@10: 0.0195    map@20: 0.0212    map@50: 0.0228    
+13 Jan 17:58    INFO test result: 
+recall@5: 0.0318    recall@10: 0.0499    recall@20: 0.0735    recall@50: 0.1231    ndcg@5: 0.0215    ndcg@10: 0.0274    ndcg@20: 0.0335    ndcg@50: 0.0436    precision@5: 0.0071    precision@10: 0.0055    precision@20: 0.0041    precision@50: 0.0028    map@5: 0.0175    map@10: 0.0199    map@20: 0.0215    map@50: 0.0231    
+13 Jan 17:58    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 17:58    INFO epoch 9 training [time: 9.38s, train loss: 42.0128]
+13 Jan 17:59    INFO epoch 9 evaluating [time: 3.01s, valid_score: 0.081300]
+13 Jan 17:59    INFO valid result: 
+recall@5: 0.0335    recall@10: 0.0521    recall@20: 0.0813    recall@50: 0.1379    ndcg@5: 0.0226    ndcg@10: 0.0286    ndcg@20: 0.0360    ndcg@50: 0.0473    precision@5: 0.0070    precision@10: 0.0055    precision@20: 0.0043    precision@50: 0.0029    map@5: 0.0187    map@10: 0.0211    map@20: 0.0232    map@50: 0.0249    
+13 Jan 17:59    INFO test result: 
+recall@5: 0.0347    recall@10: 0.0560    recall@20: 0.0854    recall@50: 0.1424    ndcg@5: 0.0233    ndcg@10: 0.0303    ndcg@20: 0.0379    ndcg@50: 0.0494    precision@5: 0.0077    precision@10: 0.0062    precision@20: 0.0047    precision@50: 0.0032    map@5: 0.0189    map@10: 0.0217    map@20: 0.0237    map@50: 0.0256    
+13 Jan 17:59    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 17:59    INFO epoch 10 training [time: 9.35s, train loss: 39.3475]
+13 Jan 17:59    INFO epoch 10 evaluating [time: 3.04s, valid_score: 0.085700]
+13 Jan 17:59    INFO valid result: 
+recall@5: 0.0344    recall@10: 0.0547    recall@20: 0.0857    recall@50: 0.1484    ndcg@5: 0.0231    ndcg@10: 0.0297    ndcg@20: 0.0376    ndcg@50: 0.0501    precision@5: 0.0072    precision@10: 0.0057    precision@20: 0.0045    precision@50: 0.0031    map@5: 0.0191    map@10: 0.0218    map@20: 0.0239    map@50: 0.0259    
+13 Jan 17:59    INFO test result: 
+recall@5: 0.0350    recall@10: 0.0578    recall@20: 0.0888    recall@50: 0.1497    ndcg@5: 0.0236    ndcg@10: 0.0311    ndcg@20: 0.0391    ndcg@50: 0.0514    precision@5: 0.0078    precision@10: 0.0064    precision@20: 0.0049    precision@50: 0.0033    map@5: 0.0192    map@10: 0.0222    map@20: 0.0243    map@50: 0.0263    
+13 Jan 17:59    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 17:59    INFO epoch 11 training [time: 9.50s, train loss: 36.2617]
+13 Jan 17:59    INFO epoch 11 evaluating [time: 3.03s, valid_score: 0.085900]
+13 Jan 17:59    INFO valid result: 
+recall@5: 0.0348    recall@10: 0.0558    recall@20: 0.0859    recall@50: 0.1476    ndcg@5: 0.0232    ndcg@10: 0.0300    ndcg@20: 0.0377    ndcg@50: 0.0500    precision@5: 0.0073    precision@10: 0.0059    precision@20: 0.0045    precision@50: 0.0031    map@5: 0.0191    map@10: 0.0219    map@20: 0.0240    map@50: 0.0259    
+13 Jan 17:59    INFO test result: 
+recall@5: 0.0370    recall@10: 0.0578    recall@20: 0.0890    recall@50: 0.1523    ndcg@5: 0.0242    ndcg@10: 0.0310    ndcg@20: 0.0390    ndcg@50: 0.0518    precision@5: 0.0082    precision@10: 0.0064    precision@20: 0.0049    precision@50: 0.0034    map@5: 0.0194    map@10: 0.0221    map@20: 0.0242    map@50: 0.0262    
+13 Jan 17:59    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 17:59    INFO epoch 12 training [time: 9.42s, train loss: 33.2156]
+13 Jan 17:59    INFO epoch 12 evaluating [time: 3.07s, valid_score: 0.087900]
+13 Jan 17:59    INFO valid result: 
+recall@5: 0.0343    recall@10: 0.0560    recall@20: 0.0879    recall@50: 0.1508    ndcg@5: 0.0228    ndcg@10: 0.0299    ndcg@20: 0.0379    ndcg@50: 0.0505    precision@5: 0.0072    precision@10: 0.0059    precision@20: 0.0046    precision@50: 0.0032    map@5: 0.0188    map@10: 0.0216    map@20: 0.0238    map@50: 0.0258    
+13 Jan 17:59    INFO test result: 
+recall@5: 0.0360    recall@10: 0.0569    recall@20: 0.0894    recall@50: 0.1550    ndcg@5: 0.0235    ndcg@10: 0.0304    ndcg@20: 0.0387    ndcg@50: 0.0520    precision@5: 0.0079    precision@10: 0.0063    precision@20: 0.0050    precision@50: 0.0034    map@5: 0.0188    map@10: 0.0216    map@20: 0.0238    map@50: 0.0259    
+13 Jan 17:59    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 17:59    INFO epoch 13 training [time: 9.44s, train loss: 30.5298]
+13 Jan 18:00    INFO epoch 13 evaluating [time: 3.00s, valid_score: 0.087400]
+13 Jan 18:00    INFO valid result: 
+recall@5: 0.0343    recall@10: 0.0560    recall@20: 0.0874    recall@50: 0.1522    ndcg@5: 0.0232    ndcg@10: 0.0302    ndcg@20: 0.0382    ndcg@50: 0.0511    precision@5: 0.0072    precision@10: 0.0059    precision@20: 0.0046    precision@50: 0.0032    map@5: 0.0193    map@10: 0.0222    map@20: 0.0243    map@50: 0.0263    
+13 Jan 18:00    INFO test result: 
+recall@5: 0.0367    recall@10: 0.0577    recall@20: 0.0905    recall@50: 0.1559    ndcg@5: 0.0242    ndcg@10: 0.0311    ndcg@20: 0.0396    ndcg@50: 0.0527    precision@5: 0.0081    precision@10: 0.0064    precision@20: 0.0050    precision@50: 0.0035    map@5: 0.0195    map@10: 0.0223    map@20: 0.0245    map@50: 0.0266    
+13 Jan 18:00    INFO epoch 14 training [time: 9.47s, train loss: 28.3984]
+13 Jan 18:00    INFO epoch 14 evaluating [time: 3.03s, valid_score: 0.088900]
+13 Jan 18:00    INFO valid result: 
+recall@5: 0.0344    recall@10: 0.0564    recall@20: 0.0889    recall@50: 0.1539    ndcg@5: 0.0229    ndcg@10: 0.0300    ndcg@20: 0.0382    ndcg@50: 0.0512    precision@5: 0.0072    precision@10: 0.0059    precision@20: 0.0047    precision@50: 0.0033    map@5: 0.0188    map@10: 0.0217    map@20: 0.0239    map@50: 0.0260    
+13 Jan 18:00    INFO test result: 
+recall@5: 0.0358    recall@10: 0.0581    recall@20: 0.0907    recall@50: 0.1569    ndcg@5: 0.0237    ndcg@10: 0.0309    ndcg@20: 0.0393    ndcg@50: 0.0526    precision@5: 0.0079    precision@10: 0.0064    precision@20: 0.0050    precision@50: 0.0035    map@5: 0.0190    map@10: 0.0219    map@20: 0.0241    map@50: 0.0262    
+13 Jan 18:00    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:00    INFO epoch 15 training [time: 9.51s, train loss: 26.5953]
+13 Jan 18:00    INFO epoch 15 evaluating [time: 3.05s, valid_score: 0.087700]
+13 Jan 18:00    INFO valid result: 
+recall@5: 0.0344    recall@10: 0.0547    recall@20: 0.0877    recall@50: 0.1535    ndcg@5: 0.0229    ndcg@10: 0.0295    ndcg@20: 0.0379    ndcg@50: 0.0510    precision@5: 0.0072    precision@10: 0.0057    precision@20: 0.0046    precision@50: 0.0032    map@5: 0.0188    map@10: 0.0215    map@20: 0.0238    map@50: 0.0259    
+13 Jan 18:00    INFO test result: 
+recall@5: 0.0360    recall@10: 0.0593    recall@20: 0.0914    recall@50: 0.1585    ndcg@5: 0.0237    ndcg@10: 0.0313    ndcg@20: 0.0396    ndcg@50: 0.0531    precision@5: 0.0079    precision@10: 0.0065    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0191    map@10: 0.0221    map@20: 0.0243    map@50: 0.0264    
+13 Jan 18:00    INFO epoch 16 training [time: 9.40s, train loss: 25.1637]
+13 Jan 18:00    INFO epoch 16 evaluating [time: 3.11s, valid_score: 0.091000]
+13 Jan 18:00    INFO valid result: 
+recall@5: 0.0362    recall@10: 0.0566    recall@20: 0.0910    recall@50: 0.1561    ndcg@5: 0.0237    ndcg@10: 0.0303    ndcg@20: 0.0390    ndcg@50: 0.0520    precision@5: 0.0075    precision@10: 0.0059    precision@20: 0.0048    precision@50: 0.0033    map@5: 0.0193    map@10: 0.0220    map@20: 0.0243    map@50: 0.0263    
+13 Jan 18:00    INFO test result: 
+recall@5: 0.0366    recall@10: 0.0595    recall@20: 0.0931    recall@50: 0.1600    ndcg@5: 0.0242    ndcg@10: 0.0317    ndcg@20: 0.0403    ndcg@50: 0.0538    precision@5: 0.0081    precision@10: 0.0065    precision@20: 0.0051    precision@50: 0.0036    map@5: 0.0195    map@10: 0.0225    map@20: 0.0248    map@50: 0.0269    
+13 Jan 18:00    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:01    INFO epoch 17 training [time: 9.39s, train loss: 23.8067]
+13 Jan 18:01    INFO epoch 17 evaluating [time: 3.17s, valid_score: 0.090600]
+13 Jan 18:01    INFO valid result: 
+recall@5: 0.0362    recall@10: 0.0574    recall@20: 0.0906    recall@50: 0.1561    ndcg@5: 0.0240    ndcg@10: 0.0309    ndcg@20: 0.0394    ndcg@50: 0.0525    precision@5: 0.0076    precision@10: 0.0060    precision@20: 0.0048    precision@50: 0.0033    map@5: 0.0198    map@10: 0.0226    map@20: 0.0248    map@50: 0.0269    
+13 Jan 18:01    INFO test result: 
+recall@5: 0.0382    recall@10: 0.0604    recall@20: 0.0922    recall@50: 0.1610    ndcg@5: 0.0251    ndcg@10: 0.0324    ndcg@20: 0.0406    ndcg@50: 0.0545    precision@5: 0.0084    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0036    map@5: 0.0201    map@10: 0.0231    map@20: 0.0253    map@50: 0.0275    
+13 Jan 18:01    INFO epoch 18 training [time: 9.58s, train loss: 22.6809]
+13 Jan 18:01    INFO epoch 18 evaluating [time: 3.15s, valid_score: 0.091400]
+13 Jan 18:01    INFO valid result: 
+recall@5: 0.0359    recall@10: 0.0583    recall@20: 0.0914    recall@50: 0.1578    ndcg@5: 0.0237    ndcg@10: 0.0310    ndcg@20: 0.0393    ndcg@50: 0.0526    precision@5: 0.0075    precision@10: 0.0061    precision@20: 0.0048    precision@50: 0.0033    map@5: 0.0194    map@10: 0.0223    map@20: 0.0246    map@50: 0.0267    
+13 Jan 18:01    INFO test result: 
+recall@5: 0.0383    recall@10: 0.0611    recall@20: 0.0948    recall@50: 0.1630    ndcg@5: 0.0253    ndcg@10: 0.0328    ndcg@20: 0.0414    ndcg@50: 0.0551    precision@5: 0.0084    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0036    map@5: 0.0204    map@10: 0.0234    map@20: 0.0257    map@50: 0.0278    
+13 Jan 18:01    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:01    INFO epoch 19 training [time: 9.41s, train loss: 21.7240]
+13 Jan 18:01    INFO epoch 19 evaluating [time: 3.03s, valid_score: 0.093500]
+13 Jan 18:01    INFO valid result: 
+recall@5: 0.0371    recall@10: 0.0606    recall@20: 0.0935    recall@50: 0.1601    ndcg@5: 0.0245    ndcg@10: 0.0320    ndcg@20: 0.0404    ndcg@50: 0.0537    precision@5: 0.0078    precision@10: 0.0064    precision@20: 0.0049    precision@50: 0.0034    map@5: 0.0201    map@10: 0.0231    map@20: 0.0253    map@50: 0.0274    
+13 Jan 18:01    INFO test result: 
+recall@5: 0.0396    recall@10: 0.0636    recall@20: 0.0950    recall@50: 0.1638    ndcg@5: 0.0262    ndcg@10: 0.0341    ndcg@20: 0.0421    ndcg@50: 0.0560    precision@5: 0.0087    precision@10: 0.0070    precision@20: 0.0053    precision@50: 0.0036    map@5: 0.0211    map@10: 0.0243    map@20: 0.0265    map@50: 0.0286    
+13 Jan 18:01    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:01    INFO epoch 20 training [time: 9.29s, train loss: 20.8421]
+13 Jan 18:01    INFO epoch 20 evaluating [time: 3.05s, valid_score: 0.093200]
+13 Jan 18:01    INFO valid result: 
+recall@5: 0.0367    recall@10: 0.0603    recall@20: 0.0932    recall@50: 0.1613    ndcg@5: 0.0246    ndcg@10: 0.0322    ndcg@20: 0.0406    ndcg@50: 0.0542    precision@5: 0.0077    precision@10: 0.0064    precision@20: 0.0049    precision@50: 0.0034    map@5: 0.0203    map@10: 0.0234    map@20: 0.0256    map@50: 0.0278    
+13 Jan 18:01    INFO test result: 
+recall@5: 0.0396    recall@10: 0.0627    recall@20: 0.0952    recall@50: 0.1643    ndcg@5: 0.0262    ndcg@10: 0.0338    ndcg@20: 0.0422    ndcg@50: 0.0561    precision@5: 0.0087    precision@10: 0.0069    precision@20: 0.0053    precision@50: 0.0037    map@5: 0.0211    map@10: 0.0242    map@20: 0.0264    map@50: 0.0286    
+13 Jan 18:02    INFO epoch 21 training [time: 9.38s, train loss: 20.1073]
+13 Jan 18:02    INFO epoch 21 evaluating [time: 3.04s, valid_score: 0.093700]
+13 Jan 18:02    INFO valid result: 
+recall@5: 0.0371    recall@10: 0.0599    recall@20: 0.0937    recall@50: 0.1627    ndcg@5: 0.0245    ndcg@10: 0.0319    ndcg@20: 0.0405    ndcg@50: 0.0543    precision@5: 0.0078    precision@10: 0.0063    precision@20: 0.0049    precision@50: 0.0034    map@5: 0.0201    map@10: 0.0231    map@20: 0.0254    map@50: 0.0276    
+13 Jan 18:02    INFO test result: 
+recall@5: 0.0399    recall@10: 0.0639    recall@20: 0.0955    recall@50: 0.1658    ndcg@5: 0.0261    ndcg@10: 0.0339    ndcg@20: 0.0421    ndcg@50: 0.0563    precision@5: 0.0088    precision@10: 0.0070    precision@20: 0.0053    precision@50: 0.0037    map@5: 0.0209    map@10: 0.0240    map@20: 0.0262    map@50: 0.0285    
+13 Jan 18:02    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:02    INFO epoch 22 training [time: 9.54s, train loss: 19.2617]
+13 Jan 18:02    INFO epoch 22 evaluating [time: 3.05s, valid_score: 0.093700]
+13 Jan 18:02    INFO valid result: 
+recall@5: 0.0374    recall@10: 0.0613    recall@20: 0.0937    recall@50: 0.1608    ndcg@5: 0.0249    ndcg@10: 0.0327    ndcg@20: 0.0409    ndcg@50: 0.0544    precision@5: 0.0079    precision@10: 0.0064    precision@20: 0.0049    precision@50: 0.0034    map@5: 0.0205    map@10: 0.0237    map@20: 0.0259    map@50: 0.0280    
+13 Jan 18:02    INFO test result: 
+recall@5: 0.0405    recall@10: 0.0655    recall@20: 0.0976    recall@50: 0.1660    ndcg@5: 0.0267    ndcg@10: 0.0349    ndcg@20: 0.0431    ndcg@50: 0.0570    precision@5: 0.0089    precision@10: 0.0072    precision@20: 0.0054    precision@50: 0.0037    map@5: 0.0215    map@10: 0.0248    map@20: 0.0270    map@50: 0.0292    
+13 Jan 18:02    INFO epoch 23 training [time: 9.50s, train loss: 18.7000]
+13 Jan 18:02    INFO epoch 23 evaluating [time: 3.06s, valid_score: 0.096200]
+13 Jan 18:02    INFO valid result: 
+recall@5: 0.0384    recall@10: 0.0622    recall@20: 0.0962    recall@50: 0.1649    ndcg@5: 0.0255    ndcg@10: 0.0332    ndcg@20: 0.0419    ndcg@50: 0.0556    precision@5: 0.0081    precision@10: 0.0065    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0210    map@10: 0.0241    map@20: 0.0265    map@50: 0.0286    
+13 Jan 18:02    INFO test result: 
+recall@5: 0.0398    recall@10: 0.0643    recall@20: 0.0978    recall@50: 0.1668    ndcg@5: 0.0266    ndcg@10: 0.0347    ndcg@20: 0.0433    ndcg@50: 0.0572    precision@5: 0.0088    precision@10: 0.0071    precision@20: 0.0054    precision@50: 0.0037    map@5: 0.0216    map@10: 0.0248    map@20: 0.0271    map@50: 0.0293    
+13 Jan 18:02    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:02    INFO epoch 24 training [time: 9.45s, train loss: 18.0789]
+13 Jan 18:02    INFO epoch 24 evaluating [time: 3.03s, valid_score: 0.095500]
+13 Jan 18:02    INFO valid result: 
+recall@5: 0.0377    recall@10: 0.0618    recall@20: 0.0955    recall@50: 0.1627    ndcg@5: 0.0252    ndcg@10: 0.0331    ndcg@20: 0.0417    ndcg@50: 0.0552    precision@5: 0.0079    precision@10: 0.0065    precision@20: 0.0050    precision@50: 0.0034    map@5: 0.0208    map@10: 0.0240    map@20: 0.0264    map@50: 0.0285    
+13 Jan 18:02    INFO test result: 
+recall@5: 0.0407    recall@10: 0.0633    recall@20: 0.0994    recall@50: 0.1679    ndcg@5: 0.0268    ndcg@10: 0.0342    ndcg@20: 0.0435    ndcg@50: 0.0573    precision@5: 0.0089    precision@10: 0.0069    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0215    map@10: 0.0245    map@20: 0.0270    map@50: 0.0292    
+13 Jan 18:03    INFO epoch 25 training [time: 9.53s, train loss: 17.5415]
+13 Jan 18:03    INFO epoch 25 evaluating [time: 3.06s, valid_score: 0.096200]
+13 Jan 18:03    INFO valid result: 
+recall@5: 0.0390    recall@10: 0.0625    recall@20: 0.0962    recall@50: 0.1636    ndcg@5: 0.0259    ndcg@10: 0.0335    ndcg@20: 0.0421    ndcg@50: 0.0556    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0213    map@10: 0.0244    map@20: 0.0267    map@50: 0.0288    
+13 Jan 18:03    INFO test result: 
+recall@5: 0.0406    recall@10: 0.0657    recall@20: 0.0996    recall@50: 0.1692    ndcg@5: 0.0266    ndcg@10: 0.0349    ndcg@20: 0.0436    ndcg@50: 0.0577    precision@5: 0.0089    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0038    map@5: 0.0214    map@10: 0.0247    map@20: 0.0270    map@50: 0.0292    
+13 Jan 18:03    INFO epoch 26 training [time: 9.49s, train loss: 17.0776]
+13 Jan 18:03    INFO epoch 26 evaluating [time: 3.19s, valid_score: 0.096200]
+13 Jan 18:03    INFO valid result: 
+recall@5: 0.0390    recall@10: 0.0635    recall@20: 0.0962    recall@50: 0.1644    ndcg@5: 0.0257    ndcg@10: 0.0337    ndcg@20: 0.0420    ndcg@50: 0.0556    precision@5: 0.0082    precision@10: 0.0067    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0211    map@10: 0.0243    map@20: 0.0265    map@50: 0.0287    
+13 Jan 18:03    INFO test result: 
+recall@5: 0.0404    recall@10: 0.0663    recall@20: 0.0997    recall@50: 0.1680    ndcg@5: 0.0266    ndcg@10: 0.0351    ndcg@20: 0.0438    ndcg@50: 0.0576    precision@5: 0.0089    precision@10: 0.0073    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0214    map@10: 0.0249    map@20: 0.0272    map@50: 0.0293    
+13 Jan 18:03    INFO epoch 27 training [time: 9.46s, train loss: 16.6294]
+13 Jan 18:03    INFO epoch 27 evaluating [time: 3.04s, valid_score: 0.095700]
+13 Jan 18:03    INFO valid result: 
+recall@5: 0.0391    recall@10: 0.0631    recall@20: 0.0957    recall@50: 0.1647    ndcg@5: 0.0259    ndcg@10: 0.0337    ndcg@20: 0.0420    ndcg@50: 0.0558    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0050    precision@50: 0.0035    map@5: 0.0213    map@10: 0.0245    map@20: 0.0267    map@50: 0.0289    
+13 Jan 18:03    INFO test result: 
+recall@5: 0.0409    recall@10: 0.0645    recall@20: 0.1010    recall@50: 0.1688    ndcg@5: 0.0268    ndcg@10: 0.0345    ndcg@20: 0.0438    ndcg@50: 0.0575    precision@5: 0.0090    precision@10: 0.0071    precision@20: 0.0056    precision@50: 0.0038    map@5: 0.0214    map@10: 0.0245    map@20: 0.0270    map@50: 0.0292    
+13 Jan 18:03    INFO epoch 28 training [time: 9.47s, train loss: 16.2147]
+13 Jan 18:03    INFO epoch 28 evaluating [time: 3.04s, valid_score: 0.097600]
+13 Jan 18:03    INFO valid result: 
+recall@5: 0.0394    recall@10: 0.0646    recall@20: 0.0976    recall@50: 0.1646    ndcg@5: 0.0261    ndcg@10: 0.0343    ndcg@20: 0.0427    ndcg@50: 0.0561    precision@5: 0.0083    precision@10: 0.0068    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0215    map@10: 0.0248    map@20: 0.0271    map@50: 0.0292    
+13 Jan 18:03    INFO test result: 
+recall@5: 0.0407    recall@10: 0.0649    recall@20: 0.0996    recall@50: 0.1681    ndcg@5: 0.0267    ndcg@10: 0.0346    ndcg@20: 0.0435    ndcg@50: 0.0574    precision@5: 0.0090    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0214    map@10: 0.0246    map@20: 0.0270    map@50: 0.0292    
+13 Jan 18:03    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:04    INFO epoch 29 training [time: 9.46s, train loss: 15.8406]
+13 Jan 18:04    INFO epoch 29 evaluating [time: 3.06s, valid_score: 0.096700]
+13 Jan 18:04    INFO valid result: 
+recall@5: 0.0387    recall@10: 0.0632    recall@20: 0.0967    recall@50: 0.1646    ndcg@5: 0.0258    ndcg@10: 0.0338    ndcg@20: 0.0423    ndcg@50: 0.0559    precision@5: 0.0081    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0213    map@10: 0.0245    map@20: 0.0268    map@50: 0.0289    
+13 Jan 18:04    INFO test result: 
+recall@5: 0.0416    recall@10: 0.0657    recall@20: 0.0991    recall@50: 0.1681    ndcg@5: 0.0275    ndcg@10: 0.0353    ndcg@20: 0.0440    ndcg@50: 0.0580    precision@5: 0.0092    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0221    map@10: 0.0253    map@20: 0.0276    map@50: 0.0298    
+13 Jan 18:04    INFO epoch 30 training [time: 9.44s, train loss: 15.5435]
+13 Jan 18:04    INFO epoch 30 evaluating [time: 3.07s, valid_score: 0.097400]
+13 Jan 18:04    INFO valid result: 
+recall@5: 0.0387    recall@10: 0.0630    recall@20: 0.0974    recall@50: 0.1655    ndcg@5: 0.0259    ndcg@10: 0.0338    ndcg@20: 0.0425    ndcg@50: 0.0561    precision@5: 0.0081    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0213    map@10: 0.0246    map@20: 0.0269    map@50: 0.0291    
+13 Jan 18:04    INFO test result: 
+recall@5: 0.0411    recall@10: 0.0662    recall@20: 0.1010    recall@50: 0.1685    ndcg@5: 0.0271    ndcg@10: 0.0352    ndcg@20: 0.0442    ndcg@50: 0.0579    precision@5: 0.0090    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0038    map@5: 0.0218    map@10: 0.0251    map@20: 0.0274    map@50: 0.0296    
+13 Jan 18:04    INFO epoch 31 training [time: 9.49s, train loss: 15.0862]
+13 Jan 18:04    INFO epoch 31 evaluating [time: 3.07s, valid_score: 0.097200]
+13 Jan 18:04    INFO valid result: 
+recall@5: 0.0395    recall@10: 0.0637    recall@20: 0.0972    recall@50: 0.1653    ndcg@5: 0.0262    ndcg@10: 0.0341    ndcg@20: 0.0427    ndcg@50: 0.0562    precision@5: 0.0083    precision@10: 0.0067    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0216    map@10: 0.0248    map@20: 0.0271    map@50: 0.0292    
+13 Jan 18:04    INFO test result: 
+recall@5: 0.0409    recall@10: 0.0666    recall@20: 0.0998    recall@50: 0.1688    ndcg@5: 0.0272    ndcg@10: 0.0356    ndcg@20: 0.0441    ndcg@50: 0.0581    precision@5: 0.0090    precision@10: 0.0073    precision@20: 0.0055    precision@50: 0.0038    map@5: 0.0219    map@10: 0.0253    map@20: 0.0276    map@50: 0.0298    
+13 Jan 18:04    INFO epoch 32 training [time: 9.52s, train loss: 14.8607]
+13 Jan 18:05    INFO epoch 32 evaluating [time: 3.03s, valid_score: 0.097000]
+13 Jan 18:05    INFO valid result: 
+recall@5: 0.0403    recall@10: 0.0634    recall@20: 0.0970    recall@50: 0.1633    ndcg@5: 0.0264    ndcg@10: 0.0339    ndcg@20: 0.0424    ndcg@50: 0.0557    precision@5: 0.0085    precision@10: 0.0067    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0215    map@10: 0.0245    map@20: 0.0269    map@50: 0.0290    
+13 Jan 18:05    INFO test result: 
+recall@5: 0.0408    recall@10: 0.0665    recall@20: 0.1007    recall@50: 0.1664    ndcg@5: 0.0272    ndcg@10: 0.0356    ndcg@20: 0.0444    ndcg@50: 0.0577    precision@5: 0.0090    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0220    map@10: 0.0254    map@20: 0.0277    map@50: 0.0299    
+13 Jan 18:05    INFO epoch 33 training [time: 9.61s, train loss: 14.5493]
+13 Jan 18:05    INFO epoch 33 evaluating [time: 3.04s, valid_score: 0.097100]
+13 Jan 18:05    INFO valid result: 
+recall@5: 0.0399    recall@10: 0.0629    recall@20: 0.0971    recall@50: 0.1642    ndcg@5: 0.0265    ndcg@10: 0.0339    ndcg@20: 0.0426    ndcg@50: 0.0561    precision@5: 0.0084    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0217    map@10: 0.0248    map@20: 0.0271    map@50: 0.0293    
+13 Jan 18:05    INFO test result: 
+recall@5: 0.0414    recall@10: 0.0663    recall@20: 0.1008    recall@50: 0.1689    ndcg@5: 0.0273    ndcg@10: 0.0354    ndcg@20: 0.0443    ndcg@50: 0.0581    precision@5: 0.0091    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0038    map@5: 0.0220    map@10: 0.0253    map@20: 0.0276    map@50: 0.0298    
+13 Jan 18:05    INFO epoch 34 training [time: 9.47s, train loss: 14.3252]
+13 Jan 18:05    INFO epoch 34 evaluating [time: 3.03s, valid_score: 0.098600]
+13 Jan 18:05    INFO valid result: 
+recall@5: 0.0403    recall@10: 0.0638    recall@20: 0.0986    recall@50: 0.1649    ndcg@5: 0.0264    ndcg@10: 0.0340    ndcg@20: 0.0429    ndcg@50: 0.0562    precision@5: 0.0085    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0035    map@5: 0.0215    map@10: 0.0246    map@20: 0.0270    map@50: 0.0291    
+13 Jan 18:05    INFO test result: 
+recall@5: 0.0409    recall@10: 0.0656    recall@20: 0.1014    recall@50: 0.1678    ndcg@5: 0.0271    ndcg@10: 0.0353    ndcg@20: 0.0445    ndcg@50: 0.0580    precision@5: 0.0090    precision@10: 0.0072    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0219    map@10: 0.0252    map@20: 0.0277    map@50: 0.0298    
+13 Jan 18:05    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:05    INFO epoch 35 training [time: 9.56s, train loss: 14.0511]
+13 Jan 18:05    INFO epoch 35 evaluating [time: 3.23s, valid_score: 0.098600]
+13 Jan 18:05    INFO valid result: 
+recall@5: 0.0400    recall@10: 0.0635    recall@20: 0.0986    recall@50: 0.1646    ndcg@5: 0.0262    ndcg@10: 0.0338    ndcg@20: 0.0428    ndcg@50: 0.0560    precision@5: 0.0084    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0035    map@5: 0.0214    map@10: 0.0245    map@20: 0.0269    map@50: 0.0290    
+13 Jan 18:05    INFO test result: 
+recall@5: 0.0413    recall@10: 0.0657    recall@20: 0.1004    recall@50: 0.1674    ndcg@5: 0.0274    ndcg@10: 0.0354    ndcg@20: 0.0444    ndcg@50: 0.0580    precision@5: 0.0091    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0222    map@10: 0.0254    map@20: 0.0278    map@50: 0.0300    
+13 Jan 18:05    INFO epoch 36 training [time: 9.55s, train loss: 13.8865]
+13 Jan 18:06    INFO epoch 36 evaluating [time: 3.14s, valid_score: 0.097600]
+13 Jan 18:06    INFO valid result: 
+recall@5: 0.0392    recall@10: 0.0643    recall@20: 0.0976    recall@50: 0.1653    ndcg@5: 0.0260    ndcg@10: 0.0340    ndcg@20: 0.0425    ndcg@50: 0.0560    precision@5: 0.0082    precision@10: 0.0068    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0213    map@10: 0.0245    map@20: 0.0268    map@50: 0.0289    
+13 Jan 18:06    INFO test result: 
+recall@5: 0.0421    recall@10: 0.0662    recall@20: 0.1013    recall@50: 0.1684    ndcg@5: 0.0277    ndcg@10: 0.0356    ndcg@20: 0.0446    ndcg@50: 0.0582    precision@5: 0.0093    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0223    map@10: 0.0254    map@20: 0.0279    map@50: 0.0300    
+13 Jan 18:06    INFO epoch 37 training [time: 9.49s, train loss: 13.7032]
+13 Jan 18:06    INFO epoch 37 evaluating [time: 3.06s, valid_score: 0.098000]
+13 Jan 18:06    INFO valid result: 
+recall@5: 0.0407    recall@10: 0.0650    recall@20: 0.0980    recall@50: 0.1655    ndcg@5: 0.0268    ndcg@10: 0.0346    ndcg@20: 0.0429    ndcg@50: 0.0564    precision@5: 0.0086    precision@10: 0.0069    precision@20: 0.0052    precision@50: 0.0035    map@5: 0.0219    map@10: 0.0250    map@20: 0.0272    map@50: 0.0293    
+13 Jan 18:06    INFO test result: 
+recall@5: 0.0408    recall@10: 0.0659    recall@20: 0.1019    recall@50: 0.1683    ndcg@5: 0.0273    ndcg@10: 0.0355    ndcg@20: 0.0448    ndcg@50: 0.0583    precision@5: 0.0090    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0222    map@10: 0.0255    map@20: 0.0280    map@50: 0.0301    
+13 Jan 18:06    INFO epoch 38 training [time: 9.47s, train loss: 13.4824]
+13 Jan 18:06    INFO epoch 38 evaluating [time: 3.16s, valid_score: 0.098400]
+13 Jan 18:06    INFO valid result: 
+recall@5: 0.0395    recall@10: 0.0636    recall@20: 0.0984    recall@50: 0.1617    ndcg@5: 0.0262    ndcg@10: 0.0340    ndcg@20: 0.0429    ndcg@50: 0.0556    precision@5: 0.0083    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0034    map@5: 0.0215    map@10: 0.0247    map@20: 0.0270    map@50: 0.0291    
+13 Jan 18:06    INFO test result: 
+recall@5: 0.0404    recall@10: 0.0668    recall@20: 0.1010    recall@50: 0.1667    ndcg@5: 0.0270    ndcg@10: 0.0355    ndcg@20: 0.0444    ndcg@50: 0.0577    precision@5: 0.0089    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0218    map@10: 0.0253    map@20: 0.0276    map@50: 0.0297    
+13 Jan 18:06    INFO epoch 39 training [time: 9.68s, train loss: 13.3037]
+13 Jan 18:06    INFO epoch 39 evaluating [time: 3.09s, valid_score: 0.098800]
+13 Jan 18:06    INFO valid result: 
+recall@5: 0.0408    recall@10: 0.0634    recall@20: 0.0988    recall@50: 0.1628    ndcg@5: 0.0268    ndcg@10: 0.0341    ndcg@20: 0.0431    ndcg@50: 0.0559    precision@5: 0.0086    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0034    map@5: 0.0219    map@10: 0.0248    map@20: 0.0272    map@50: 0.0293    
+13 Jan 18:06    INFO test result: 
+recall@5: 0.0415    recall@10: 0.0664    recall@20: 0.1015    recall@50: 0.1685    ndcg@5: 0.0273    ndcg@10: 0.0354    ndcg@20: 0.0445    ndcg@50: 0.0580    precision@5: 0.0091    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0038    map@5: 0.0220    map@10: 0.0252    map@20: 0.0276    map@50: 0.0298    
+13 Jan 18:06    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:07    INFO epoch 40 training [time: 9.46s, train loss: 13.1520]
+13 Jan 18:07    INFO epoch 40 evaluating [time: 3.05s, valid_score: 0.097500]
+13 Jan 18:07    INFO valid result: 
+recall@5: 0.0401    recall@10: 0.0640    recall@20: 0.0975    recall@50: 0.1617    ndcg@5: 0.0265    ndcg@10: 0.0343    ndcg@20: 0.0428    ndcg@50: 0.0557    precision@5: 0.0084    precision@10: 0.0067    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0217    map@10: 0.0249    map@20: 0.0272    map@50: 0.0292    
+13 Jan 18:07    INFO test result: 
+recall@5: 0.0411    recall@10: 0.0655    recall@20: 0.1012    recall@50: 0.1688    ndcg@5: 0.0274    ndcg@10: 0.0354    ndcg@20: 0.0446    ndcg@50: 0.0583    precision@5: 0.0091    precision@10: 0.0072    precision@20: 0.0056    precision@50: 0.0038    map@5: 0.0222    map@10: 0.0254    map@20: 0.0279    map@50: 0.0301    
+13 Jan 18:07    INFO epoch 41 training [time: 9.08s, train loss: 12.9819]
+13 Jan 18:07    INFO epoch 41 evaluating [time: 3.05s, valid_score: 0.097900]
+13 Jan 18:07    INFO valid result: 
+recall@5: 0.0399    recall@10: 0.0638    recall@20: 0.0979    recall@50: 0.1613    ndcg@5: 0.0265    ndcg@10: 0.0343    ndcg@20: 0.0429    ndcg@50: 0.0557    precision@5: 0.0084    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0034    map@5: 0.0218    map@10: 0.0249    map@20: 0.0273    map@50: 0.0293    
+13 Jan 18:07    INFO test result: 
+recall@5: 0.0407    recall@10: 0.0663    recall@20: 0.1011    recall@50: 0.1668    ndcg@5: 0.0270    ndcg@10: 0.0354    ndcg@20: 0.0444    ndcg@50: 0.0576    precision@5: 0.0090    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0219    map@10: 0.0252    map@20: 0.0276    map@50: 0.0297    
+13 Jan 18:07    INFO epoch 42 training [time: 9.04s, train loss: 12.7903]
+13 Jan 18:07    INFO epoch 42 evaluating [time: 3.06s, valid_score: 0.097900]
+13 Jan 18:07    INFO valid result: 
+recall@5: 0.0409    recall@10: 0.0636    recall@20: 0.0979    recall@50: 0.1623    ndcg@5: 0.0269    ndcg@10: 0.0343    ndcg@20: 0.0430    ndcg@50: 0.0559    precision@5: 0.0086    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0034    map@5: 0.0220    map@10: 0.0250    map@20: 0.0273    map@50: 0.0294    
+13 Jan 18:07    INFO test result: 
+recall@5: 0.0405    recall@10: 0.0661    recall@20: 0.1007    recall@50: 0.1675    ndcg@5: 0.0270    ndcg@10: 0.0354    ndcg@20: 0.0443    ndcg@50: 0.0579    precision@5: 0.0089    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0219    map@10: 0.0253    map@20: 0.0277    map@50: 0.0298    
+13 Jan 18:07    INFO epoch 43 training [time: 9.06s, train loss: 12.6472]
+13 Jan 18:07    INFO epoch 43 evaluating [time: 3.06s, valid_score: 0.098500]
+13 Jan 18:07    INFO valid result: 
+recall@5: 0.0398    recall@10: 0.0639    recall@20: 0.0985    recall@50: 0.1630    ndcg@5: 0.0264    ndcg@10: 0.0342    ndcg@20: 0.0430    ndcg@50: 0.0559    precision@5: 0.0084    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0035    map@5: 0.0217    map@10: 0.0248    map@20: 0.0272    map@50: 0.0292    
+13 Jan 18:07    INFO test result: 
+recall@5: 0.0411    recall@10: 0.0660    recall@20: 0.1013    recall@50: 0.1670    ndcg@5: 0.0272    ndcg@10: 0.0353    ndcg@20: 0.0444    ndcg@50: 0.0577    precision@5: 0.0090    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0219    map@10: 0.0252    map@20: 0.0276    map@50: 0.0297    
+13 Jan 18:08    INFO epoch 44 training [time: 9.18s, train loss: 12.5097]
+13 Jan 18:08    INFO epoch 44 evaluating [time: 3.30s, valid_score: 0.097900]
+13 Jan 18:08    INFO valid result: 
+recall@5: 0.0393    recall@10: 0.0632    recall@20: 0.0979    recall@50: 0.1614    ndcg@5: 0.0260    ndcg@10: 0.0337    ndcg@20: 0.0425    ndcg@50: 0.0553    precision@5: 0.0082    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0034    map@5: 0.0213    map@10: 0.0244    map@20: 0.0267    map@50: 0.0288    
+13 Jan 18:08    INFO test result: 
+recall@5: 0.0408    recall@10: 0.0658    recall@20: 0.1006    recall@50: 0.1659    ndcg@5: 0.0270    ndcg@10: 0.0352    ndcg@20: 0.0442    ndcg@50: 0.0575    precision@5: 0.0090    precision@10: 0.0072    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0218    map@10: 0.0251    map@20: 0.0275    map@50: 0.0296    
+13 Jan 18:08    INFO epoch 45 training [time: 9.18s, train loss: 12.3691]
+13 Jan 18:08    INFO epoch 45 evaluating [time: 3.11s, valid_score: 0.095800]
+13 Jan 18:08    INFO valid result: 
+recall@5: 0.0392    recall@10: 0.0632    recall@20: 0.0958    recall@50: 0.1611    ndcg@5: 0.0263    ndcg@10: 0.0342    ndcg@20: 0.0425    ndcg@50: 0.0556    precision@5: 0.0082    precision@10: 0.0067    precision@20: 0.0050    precision@50: 0.0034    map@5: 0.0218    map@10: 0.0249    map@20: 0.0272    map@50: 0.0293    
+13 Jan 18:08    INFO test result: 
+recall@5: 0.0403    recall@10: 0.0656    recall@20: 0.0998    recall@50: 0.1668    ndcg@5: 0.0270    ndcg@10: 0.0352    ndcg@20: 0.0440    ndcg@50: 0.0576    precision@5: 0.0089    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0219    map@10: 0.0252    map@20: 0.0276    map@50: 0.0297    
+13 Jan 18:08    INFO epoch 46 training [time: 9.18s, train loss: 12.2595]
+13 Jan 18:08    INFO epoch 46 evaluating [time: 3.15s, valid_score: 0.097500]
+13 Jan 18:08    INFO valid result: 
+recall@5: 0.0395    recall@10: 0.0632    recall@20: 0.0975    recall@50: 0.1618    ndcg@5: 0.0262    ndcg@10: 0.0339    ndcg@20: 0.0426    ndcg@50: 0.0556    precision@5: 0.0083    precision@10: 0.0067    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0215    map@10: 0.0246    map@20: 0.0270    map@50: 0.0291    
+13 Jan 18:08    INFO test result: 
+recall@5: 0.0403    recall@10: 0.0646    recall@20: 0.1008    recall@50: 0.1673    ndcg@5: 0.0270    ndcg@10: 0.0350    ndcg@20: 0.0443    ndcg@50: 0.0577    precision@5: 0.0089    precision@10: 0.0071    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0219    map@10: 0.0251    map@20: 0.0276    map@50: 0.0298    
+13 Jan 18:08    INFO epoch 47 training [time: 9.16s, train loss: 12.1465]
+13 Jan 18:08    INFO epoch 47 evaluating [time: 3.07s, valid_score: 0.097600]
+13 Jan 18:08    INFO valid result: 
+recall@5: 0.0381    recall@10: 0.0631    recall@20: 0.0976    recall@50: 0.1607    ndcg@5: 0.0254    ndcg@10: 0.0334    ndcg@20: 0.0422    ndcg@50: 0.0548    precision@5: 0.0080    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0034    map@5: 0.0209    map@10: 0.0241    map@20: 0.0265    map@50: 0.0285    
+13 Jan 18:08    INFO test result: 
+recall@5: 0.0400    recall@10: 0.0650    recall@20: 0.0998    recall@50: 0.1665    ndcg@5: 0.0269    ndcg@10: 0.0351    ndcg@20: 0.0441    ndcg@50: 0.0576    precision@5: 0.0088    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0219    map@10: 0.0252    map@20: 0.0276    map@50: 0.0298    
+13 Jan 18:09    INFO epoch 48 training [time: 9.17s, train loss: 12.0767]
+13 Jan 18:09    INFO epoch 48 evaluating [time: 3.10s, valid_score: 0.097300]
+13 Jan 18:09    INFO valid result: 
+recall@5: 0.0389    recall@10: 0.0621    recall@20: 0.0973    recall@50: 0.1607    ndcg@5: 0.0262    ndcg@10: 0.0338    ndcg@20: 0.0427    ndcg@50: 0.0555    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0217    map@10: 0.0248    map@20: 0.0272    map@50: 0.0292    
+13 Jan 18:09    INFO test result: 
+recall@5: 0.0408    recall@10: 0.0657    recall@20: 0.0998    recall@50: 0.1666    ndcg@5: 0.0274    ndcg@10: 0.0356    ndcg@20: 0.0444    ndcg@50: 0.0580    precision@5: 0.0090    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0224    map@10: 0.0256    map@20: 0.0280    map@50: 0.0301    
+13 Jan 18:09    INFO epoch 49 training [time: 9.23s, train loss: 11.9617]
+13 Jan 18:09    INFO epoch 49 evaluating [time: 3.05s, valid_score: 0.097500]
+13 Jan 18:09    INFO valid result: 
+recall@5: 0.0399    recall@10: 0.0638    recall@20: 0.0975    recall@50: 0.1604    ndcg@5: 0.0266    ndcg@10: 0.0343    ndcg@20: 0.0429    ndcg@50: 0.0555    precision@5: 0.0084    precision@10: 0.0067    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0220    map@10: 0.0250    map@20: 0.0274    map@50: 0.0293    
+13 Jan 18:09    INFO test result: 
+recall@5: 0.0405    recall@10: 0.0657    recall@20: 0.0995    recall@50: 0.1655    ndcg@5: 0.0269    ndcg@10: 0.0351    ndcg@20: 0.0439    ndcg@50: 0.0572    precision@5: 0.0089    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0218    map@10: 0.0251    map@20: 0.0274    map@50: 0.0295    
+13 Jan 18:09    INFO epoch 50 training [time: 9.16s, train loss: 11.8533]
+13 Jan 18:09    INFO epoch 50 evaluating [time: 3.11s, valid_score: 0.096700]
+13 Jan 18:09    INFO valid result: 
+recall@5: 0.0395    recall@10: 0.0629    recall@20: 0.0967    recall@50: 0.1598    ndcg@5: 0.0260    ndcg@10: 0.0336    ndcg@20: 0.0422    ndcg@50: 0.0548    precision@5: 0.0083    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0213    map@10: 0.0244    map@20: 0.0267    map@50: 0.0287    
+13 Jan 18:09    INFO test result: 
+recall@5: 0.0402    recall@10: 0.0642    recall@20: 0.0999    recall@50: 0.1664    ndcg@5: 0.0271    ndcg@10: 0.0349    ndcg@20: 0.0442    ndcg@50: 0.0576    precision@5: 0.0088    precision@10: 0.0071    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0221    map@10: 0.0253    map@20: 0.0277    map@50: 0.0298    
+13 Jan 18:09    INFO +++++Finished training, best eval result in epoch 39
+13 Jan 18:09    INFO best valid result: recall@5: 0.0408    recall@10: 0.0634    recall@20: 0.0988    recall@50: 0.1628    ndcg@5: 0.0268    ndcg@10: 0.0341    ndcg@20: 0.0431    ndcg@50: 0.0559    precision@5: 0.0086    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0034    map@5: 0.0219    map@10: 0.0248    map@20: 0.0272    map@50: 0.0293    
+13 Jan 18:09    INFO test result: recall@5: 0.0415    recall@10: 0.0664    recall@20: 0.1015    recall@50: 0.1685    ndcg@5: 0.0273    ndcg@10: 0.0354    ndcg@20: 0.0445    ndcg@50: 0.0580    precision@5: 0.0091    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0038    map@5: 0.0220    map@10: 0.0252    map@20: 0.0276    map@50: 0.0298    
+13 Jan 18:09    INFO ████Current BEST████:
+Parameters: ['seed', 'rf_loss_weight']=(999, 0.1),
+Valid: recall@5: 0.0408    recall@10: 0.0634    recall@20: 0.0988    recall@50: 0.1628    ndcg@5: 0.0268    ndcg@10: 0.0341    ndcg@20: 0.0431    ndcg@50: 0.0559    precision@5: 0.0086    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0034    map@5: 0.0219    map@10: 0.0248    map@20: 0.0272    map@50: 0.0293    ,
+Test: recall@5: 0.0415    recall@10: 0.0664    recall@20: 0.1015    recall@50: 0.1685    ndcg@5: 0.0273    ndcg@10: 0.0354    ndcg@20: 0.0445    ndcg@50: 0.0580    precision@5: 0.0091    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0038    map@5: 0.0220    map@10: 0.0252    map@20: 0.0276    map@50: 0.0298    
+
+
+
+13 Jan 18:09    INFO =========2/3: Parameters:['seed', 'rf_loss_weight']=(999, 0.15)=======
+/root/autodl-tmp/Generative-Multimodal-Recommendation/Generative-Multimodal-Recommendation/GenMMRec/src/models/gume.py:188: RuntimeWarning: divide by zero encountered in power
+  d_inv = np.power(rowsum, -0.5).flatten()
+13 Jan 18:09    INFO RFGUME(
+  (user_embedding): Embedding(19445, 64)
+  (item_id_embedding): Embedding(7050, 64)
+  (extended_image_user): Embedding(19445, 64)
+  (extended_text_user): Embedding(19445, 64)
+  (image_embedding): Embedding(7050, 4096)
+  (text_embedding): Embedding(7050, 384)
+  (image_reduce_dim): Linear(in_features=4096, out_features=64, bias=True)
+  (image_trans_dim): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Sigmoid()
+  )
+  (image_space_trans): Sequential(
+    (0): Linear(in_features=4096, out_features=64, bias=True)
+    (1): Sequential(
+      (0): Linear(in_features=64, out_features=64, bias=True)
+      (1): Sigmoid()
+    )
+  )
+  (text_reduce_dim): Linear(in_features=384, out_features=64, bias=True)
+  (text_trans_dim): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Sigmoid()
+  )
+  (text_space_trans): Sequential(
+    (0): Linear(in_features=384, out_features=64, bias=True)
+    (1): Sequential(
+      (0): Linear(in_features=64, out_features=64, bias=True)
+      (1): Sigmoid()
+    )
+  )
+  (separate_coarse): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Tanh()
+    (2): Linear(in_features=64, out_features=1, bias=False)
+  )
+  (softmax): Softmax(dim=-1)
+  (image_behavior): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Sigmoid()
+  )
+  (text_behavior): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Sigmoid()
+  )
+  (rf_generator): RFExtendedIdGenerator(
+    (velocity_net): SimpleVelocityNet(
+      (time_embed): Sequential(
+        (0): SinusoidalPositionEmbedding()
+        (1): Linear(in_features=64, out_features=128, bias=True)
+        (2): SiLU()
+        (3): Dropout(p=0.1, inplace=False)
+      )
+      (condition_encoder): Sequential(
+        (0): Linear(in_features=128, out_features=128, bias=True)
+        (1): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+        (2): SiLU()
+        (3): Dropout(p=0.1, inplace=False)
+      )
+      (input_proj): Sequential(
+        (0): Linear(in_features=64, out_features=128, bias=True)
+        (1): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+        (2): SiLU()
+        (3): Dropout(p=0.1, inplace=False)
+      )
+      (res_blocks): ModuleList(
+        (0-1): 2 x ResidualBlock(
+          (net): Sequential(
+            (0): Linear(in_features=128, out_features=128, bias=True)
+            (1): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+            (2): SiLU()
+            (3): Dropout(p=0.1, inplace=False)
+            (4): Linear(in_features=128, out_features=128, bias=True)
+            (5): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+          )
+          (skip): Identity()
+        )
+      )
+      (output_proj): Sequential(
+        (0): Linear(in_features=128, out_features=128, bias=True)
+        (1): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+        (2): SiLU()
+        (3): Dropout(p=0.1, inplace=False)
+        (4): Linear(in_features=128, out_features=64, bias=True)
+      )
+    )
+  )
+)
+Trainable parameters: 36202112
+13 Jan 18:09    INFO epoch 0 training [time: 9.12s, train loss: 49.0475]
+13 Jan 18:10    INFO epoch 0 evaluating [time: 2.95s, valid_score: 0.048500]
+13 Jan 18:10    INFO valid result: 
+recall@5: 0.0214    recall@10: 0.0324    recall@20: 0.0485    recall@50: 0.0734    ndcg@5: 0.0146    ndcg@10: 0.0181    ndcg@20: 0.0222    ndcg@50: 0.0272    precision@5: 0.0044    precision@10: 0.0034    precision@20: 0.0025    precision@50: 0.0015    map@5: 0.0122    map@10: 0.0136    map@20: 0.0147    map@50: 0.0155    
+13 Jan 18:10    INFO test result: 
+recall@5: 0.0203    recall@10: 0.0320    recall@20: 0.0485    recall@50: 0.0759    ndcg@5: 0.0138    ndcg@10: 0.0177    ndcg@20: 0.0219    ndcg@50: 0.0275    precision@5: 0.0045    precision@10: 0.0035    precision@20: 0.0027    precision@50: 0.0017    map@5: 0.0114    map@10: 0.0129    map@20: 0.0141    map@50: 0.0149    
+13 Jan 18:10    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:10    INFO epoch 1 training [time: 9.18s, train loss: 47.6982]
+13 Jan 18:10    INFO epoch 1 evaluating [time: 2.97s, valid_score: 0.047300]
+13 Jan 18:10    INFO valid result: 
+recall@5: 0.0217    recall@10: 0.0316    recall@20: 0.0473    recall@50: 0.0707    ndcg@5: 0.0148    ndcg@10: 0.0180    ndcg@20: 0.0220    ndcg@50: 0.0267    precision@5: 0.0045    precision@10: 0.0033    precision@20: 0.0025    precision@50: 0.0015    map@5: 0.0125    map@10: 0.0137    map@20: 0.0148    map@50: 0.0155    
+13 Jan 18:10    INFO test result: 
+recall@5: 0.0202    recall@10: 0.0327    recall@20: 0.0462    recall@50: 0.0723    ndcg@5: 0.0135    ndcg@10: 0.0176    ndcg@20: 0.0211    ndcg@50: 0.0263    precision@5: 0.0044    precision@10: 0.0036    precision@20: 0.0025    precision@50: 0.0016    map@5: 0.0110    map@10: 0.0127    map@20: 0.0136    map@50: 0.0144    
+13 Jan 18:10    INFO epoch 2 training [time: 9.67s, train loss: 47.5511]
+13 Jan 18:10    INFO epoch 2 evaluating [time: 2.93s, valid_score: 0.046900]
+13 Jan 18:10    INFO valid result: 
+recall@5: 0.0223    recall@10: 0.0320    recall@20: 0.0469    recall@50: 0.0721    ndcg@5: 0.0152    ndcg@10: 0.0184    ndcg@20: 0.0222    ndcg@50: 0.0272    precision@5: 0.0046    precision@10: 0.0033    precision@20: 0.0024    precision@50: 0.0015    map@5: 0.0128    map@10: 0.0140    map@20: 0.0151    map@50: 0.0159    
+13 Jan 18:10    INFO test result: 
+recall@5: 0.0205    recall@10: 0.0329    recall@20: 0.0464    recall@50: 0.0730    ndcg@5: 0.0136    ndcg@10: 0.0177    ndcg@20: 0.0211    ndcg@50: 0.0265    precision@5: 0.0044    precision@10: 0.0036    precision@20: 0.0025    precision@50: 0.0016    map@5: 0.0111    map@10: 0.0127    map@20: 0.0136    map@50: 0.0145    
+13 Jan 18:10    INFO epoch 3 training [time: 9.53s, train loss: 47.4647]
+13 Jan 18:10    INFO epoch 3 evaluating [time: 3.03s, valid_score: 0.048400]
+13 Jan 18:10    INFO valid result: 
+recall@5: 0.0228    recall@10: 0.0338    recall@20: 0.0484    recall@50: 0.0742    ndcg@5: 0.0155    ndcg@10: 0.0190    ndcg@20: 0.0227    ndcg@50: 0.0279    precision@5: 0.0047    precision@10: 0.0035    precision@20: 0.0025    precision@50: 0.0016    map@5: 0.0129    map@10: 0.0143    map@20: 0.0153    map@50: 0.0161    
+13 Jan 18:10    INFO test result: 
+recall@5: 0.0212    recall@10: 0.0333    recall@20: 0.0483    recall@50: 0.0752    ndcg@5: 0.0142    ndcg@10: 0.0182    ndcg@20: 0.0221    ndcg@50: 0.0275    precision@5: 0.0046    precision@10: 0.0036    precision@20: 0.0026    precision@50: 0.0017    map@5: 0.0116    map@10: 0.0132    map@20: 0.0143    map@50: 0.0151    
+13 Jan 18:11    INFO epoch 4 training [time: 9.18s, train loss: 47.3896]
+13 Jan 18:11    INFO epoch 4 evaluating [time: 3.04s, valid_score: 0.051500]
+13 Jan 18:11    INFO valid result: 
+recall@5: 0.0239    recall@10: 0.0352    recall@20: 0.0515    recall@50: 0.0784    ndcg@5: 0.0162    ndcg@10: 0.0199    ndcg@20: 0.0240    ndcg@50: 0.0294    precision@5: 0.0050    precision@10: 0.0037    precision@20: 0.0027    precision@50: 0.0016    map@5: 0.0135    map@10: 0.0150    map@20: 0.0161    map@50: 0.0170    
+13 Jan 18:11    INFO test result: 
+recall@5: 0.0226    recall@10: 0.0343    recall@20: 0.0506    recall@50: 0.0800    ndcg@5: 0.0151    ndcg@10: 0.0189    ndcg@20: 0.0231    ndcg@50: 0.0291    precision@5: 0.0049    precision@10: 0.0037    precision@20: 0.0028    precision@50: 0.0018    map@5: 0.0123    map@10: 0.0138    map@20: 0.0150    map@50: 0.0159    
+13 Jan 18:11    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:11    INFO epoch 5 training [time: 9.23s, train loss: 46.7760]
+13 Jan 18:11    INFO epoch 5 evaluating [time: 3.29s, valid_score: 0.032600]
+13 Jan 18:11    INFO valid result: 
+recall@5: 0.0132    recall@10: 0.0212    recall@20: 0.0326    recall@50: 0.0546    ndcg@5: 0.0082    ndcg@10: 0.0108    ndcg@20: 0.0137    ndcg@50: 0.0181    precision@5: 0.0027    precision@10: 0.0022    precision@20: 0.0017    precision@50: 0.0011    map@5: 0.0065    map@10: 0.0076    map@20: 0.0083    map@50: 0.0090    
+13 Jan 18:11    INFO test result: 
+recall@5: 0.0116    recall@10: 0.0203    recall@20: 0.0333    recall@50: 0.0548    ndcg@5: 0.0075    ndcg@10: 0.0103    ndcg@20: 0.0136    ndcg@50: 0.0180    precision@5: 0.0025    precision@10: 0.0022    precision@20: 0.0018    precision@50: 0.0012    map@5: 0.0060    map@10: 0.0072    map@20: 0.0081    map@50: 0.0087    
+13 Jan 18:11    INFO epoch 6 training [time: 9.20s, train loss: 45.8972]
+13 Jan 18:11    INFO epoch 6 evaluating [time: 3.37s, valid_score: 0.048000]
+13 Jan 18:11    INFO valid result: 
+recall@5: 0.0195    recall@10: 0.0320    recall@20: 0.0480    recall@50: 0.0831    ndcg@5: 0.0127    ndcg@10: 0.0168    ndcg@20: 0.0208    ndcg@50: 0.0279    precision@5: 0.0041    precision@10: 0.0034    precision@20: 0.0025    precision@50: 0.0018    map@5: 0.0103    map@10: 0.0120    map@20: 0.0131    map@50: 0.0142    
+13 Jan 18:11    INFO test result: 
+recall@5: 0.0198    recall@10: 0.0319    recall@20: 0.0489    recall@50: 0.0819    ndcg@5: 0.0129    ndcg@10: 0.0168    ndcg@20: 0.0212    ndcg@50: 0.0279    precision@5: 0.0043    precision@10: 0.0035    precision@20: 0.0027    precision@50: 0.0018    map@5: 0.0103    map@10: 0.0118    map@20: 0.0130    map@50: 0.0141    
+13 Jan 18:11    INFO epoch 7 training [time: 9.25s, train loss: 44.5602]
+13 Jan 18:11    INFO epoch 7 evaluating [time: 3.23s, valid_score: 0.064800]
+13 Jan 18:11    INFO valid result: 
+recall@5: 0.0276    recall@10: 0.0425    recall@20: 0.0648    recall@50: 0.1084    ndcg@5: 0.0184    ndcg@10: 0.0232    ndcg@20: 0.0289    ndcg@50: 0.0376    precision@5: 0.0058    precision@10: 0.0045    precision@20: 0.0034    precision@50: 0.0023    map@5: 0.0151    map@10: 0.0171    map@20: 0.0186    map@50: 0.0200    
+13 Jan 18:11    INFO test result: 
+recall@5: 0.0277    recall@10: 0.0431    recall@20: 0.0659    recall@50: 0.1119    ndcg@5: 0.0182    ndcg@10: 0.0232    ndcg@20: 0.0291    ndcg@50: 0.0384    precision@5: 0.0061    precision@10: 0.0047    precision@20: 0.0036    precision@50: 0.0025    map@5: 0.0146    map@10: 0.0166    map@20: 0.0182    map@50: 0.0196    
+13 Jan 18:11    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:12    INFO epoch 8 training [time: 9.80s, train loss: 42.6045]
+13 Jan 18:12    INFO epoch 8 evaluating [time: 3.19s, valid_score: 0.077500]
+13 Jan 18:12    INFO valid result: 
+recall@5: 0.0325    recall@10: 0.0502    recall@20: 0.0775    recall@50: 0.1335    ndcg@5: 0.0214    ndcg@10: 0.0271    ndcg@20: 0.0341    ndcg@50: 0.0453    precision@5: 0.0068    precision@10: 0.0053    precision@20: 0.0041    precision@50: 0.0028    map@5: 0.0176    map@10: 0.0198    map@20: 0.0217    map@50: 0.0235    
+13 Jan 18:12    INFO test result: 
+recall@5: 0.0328    recall@10: 0.0531    recall@20: 0.0795    recall@50: 0.1347    ndcg@5: 0.0217    ndcg@10: 0.0284    ndcg@20: 0.0351    ndcg@50: 0.0463    precision@5: 0.0073    precision@10: 0.0058    precision@20: 0.0044    precision@50: 0.0030    map@5: 0.0175    map@10: 0.0202    map@20: 0.0220    map@50: 0.0237    
+13 Jan 18:12    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:12    INFO epoch 9 training [time: 9.76s, train loss: 39.9555]
+13 Jan 18:12    INFO epoch 9 evaluating [time: 3.22s, valid_score: 0.083500]
+13 Jan 18:12    INFO valid result: 
+recall@5: 0.0353    recall@10: 0.0545    recall@20: 0.0835    recall@50: 0.1438    ndcg@5: 0.0238    ndcg@10: 0.0300    ndcg@20: 0.0374    ndcg@50: 0.0495    precision@5: 0.0074    precision@10: 0.0057    precision@20: 0.0044    precision@50: 0.0030    map@5: 0.0198    map@10: 0.0223    map@20: 0.0243    map@50: 0.0262    
+13 Jan 18:12    INFO test result: 
+recall@5: 0.0366    recall@10: 0.0586    recall@20: 0.0892    recall@50: 0.1494    ndcg@5: 0.0239    ndcg@10: 0.0312    ndcg@20: 0.0390    ndcg@50: 0.0512    precision@5: 0.0081    precision@10: 0.0065    precision@20: 0.0050    precision@50: 0.0033    map@5: 0.0192    map@10: 0.0221    map@20: 0.0242    map@50: 0.0261    
+13 Jan 18:12    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:12    INFO epoch 10 training [time: 9.77s, train loss: 36.7784]
+13 Jan 18:12    INFO epoch 10 evaluating [time: 3.19s, valid_score: 0.086100]
+13 Jan 18:12    INFO valid result: 
+recall@5: 0.0354    recall@10: 0.0555    recall@20: 0.0861    recall@50: 0.1486    ndcg@5: 0.0238    ndcg@10: 0.0303    ndcg@20: 0.0381    ndcg@50: 0.0505    precision@5: 0.0074    precision@10: 0.0058    precision@20: 0.0045    precision@50: 0.0031    map@5: 0.0197    map@10: 0.0223    map@20: 0.0244    map@50: 0.0264    
+13 Jan 18:12    INFO test result: 
+recall@5: 0.0364    recall@10: 0.0586    recall@20: 0.0899    recall@50: 0.1536    ndcg@5: 0.0236    ndcg@10: 0.0309    ndcg@20: 0.0390    ndcg@50: 0.0518    precision@5: 0.0080    precision@10: 0.0065    precision@20: 0.0050    precision@50: 0.0034    map@5: 0.0188    map@10: 0.0217    map@20: 0.0239    map@50: 0.0259    
+13 Jan 18:12    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:12    INFO epoch 11 training [time: 9.80s, train loss: 33.5957]
+13 Jan 18:12    INFO epoch 11 evaluating [time: 3.15s, valid_score: 0.085800]
+13 Jan 18:12    INFO valid result: 
+recall@5: 0.0347    recall@10: 0.0553    recall@20: 0.0858    recall@50: 0.1508    ndcg@5: 0.0232    ndcg@10: 0.0299    ndcg@20: 0.0376    ndcg@50: 0.0506    precision@5: 0.0073    precision@10: 0.0058    precision@20: 0.0045    precision@50: 0.0032    map@5: 0.0192    map@10: 0.0219    map@20: 0.0240    map@50: 0.0260    
+13 Jan 18:12    INFO test result: 
+recall@5: 0.0351    recall@10: 0.0578    recall@20: 0.0894    recall@50: 0.1538    ndcg@5: 0.0233    ndcg@10: 0.0308    ndcg@20: 0.0389    ndcg@50: 0.0519    precision@5: 0.0077    precision@10: 0.0064    precision@20: 0.0050    precision@50: 0.0034    map@5: 0.0188    map@10: 0.0218    map@20: 0.0240    map@50: 0.0261    
+13 Jan 18:13    INFO epoch 12 training [time: 9.71s, train loss: 30.8535]
+13 Jan 18:13    INFO epoch 12 evaluating [time: 3.36s, valid_score: 0.089200]
+13 Jan 18:13    INFO valid result: 
+recall@5: 0.0361    recall@10: 0.0581    recall@20: 0.0892    recall@50: 0.1544    ndcg@5: 0.0238    ndcg@10: 0.0309    ndcg@20: 0.0388    ndcg@50: 0.0518    precision@5: 0.0076    precision@10: 0.0061    precision@20: 0.0047    precision@50: 0.0033    map@5: 0.0195    map@10: 0.0224    map@20: 0.0245    map@50: 0.0266    
+13 Jan 18:13    INFO test result: 
+recall@5: 0.0360    recall@10: 0.0600    recall@20: 0.0927    recall@50: 0.1561    ndcg@5: 0.0237    ndcg@10: 0.0316    ndcg@20: 0.0399    ndcg@50: 0.0528    precision@5: 0.0080    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0191    map@10: 0.0222    map@20: 0.0244    map@50: 0.0264    
+13 Jan 18:13    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:13    INFO epoch 13 training [time: 9.67s, train loss: 28.5506]
+13 Jan 18:13    INFO epoch 13 evaluating [time: 3.19s, valid_score: 0.088200]
+13 Jan 18:13    INFO valid result: 
+recall@5: 0.0351    recall@10: 0.0570    recall@20: 0.0882    recall@50: 0.1562    ndcg@5: 0.0235    ndcg@10: 0.0307    ndcg@20: 0.0386    ndcg@50: 0.0521    precision@5: 0.0074    precision@10: 0.0060    precision@20: 0.0046    precision@50: 0.0033    map@5: 0.0195    map@10: 0.0224    map@20: 0.0245    map@50: 0.0266    
+13 Jan 18:13    INFO test result: 
+recall@5: 0.0368    recall@10: 0.0611    recall@20: 0.0927    recall@50: 0.1585    ndcg@5: 0.0240    ndcg@10: 0.0320    ndcg@20: 0.0401    ndcg@50: 0.0534    precision@5: 0.0081    precision@10: 0.0067    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0192    map@10: 0.0224    map@20: 0.0245    map@50: 0.0266    
+13 Jan 18:13    INFO epoch 14 training [time: 9.72s, train loss: 26.7335]
+13 Jan 18:13    INFO epoch 14 evaluating [time: 3.30s, valid_score: 0.090600]
+13 Jan 18:13    INFO valid result: 
+recall@5: 0.0350    recall@10: 0.0585    recall@20: 0.0906    recall@50: 0.1553    ndcg@5: 0.0236    ndcg@10: 0.0312    ndcg@20: 0.0394    ndcg@50: 0.0523    precision@5: 0.0073    precision@10: 0.0061    precision@20: 0.0048    precision@50: 0.0033    map@5: 0.0196    map@10: 0.0227    map@20: 0.0248    map@50: 0.0269    
+13 Jan 18:13    INFO test result: 
+recall@5: 0.0374    recall@10: 0.0606    recall@20: 0.0917    recall@50: 0.1586    ndcg@5: 0.0248    ndcg@10: 0.0323    ndcg@20: 0.0404    ndcg@50: 0.0539    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0200    map@10: 0.0230    map@20: 0.0252    map@50: 0.0273    
+13 Jan 18:13    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:13    INFO epoch 15 training [time: 9.70s, train loss: 25.2315]
+13 Jan 18:14    INFO epoch 15 evaluating [time: 3.32s, valid_score: 0.089000]
+13 Jan 18:14    INFO valid result: 
+recall@5: 0.0354    recall@10: 0.0565    recall@20: 0.0890    recall@50: 0.1551    ndcg@5: 0.0232    ndcg@10: 0.0301    ndcg@20: 0.0383    ndcg@50: 0.0515    precision@5: 0.0074    precision@10: 0.0059    precision@20: 0.0047    precision@50: 0.0033    map@5: 0.0189    map@10: 0.0217    map@20: 0.0239    map@50: 0.0260    
+13 Jan 18:14    INFO test result: 
+recall@5: 0.0366    recall@10: 0.0612    recall@20: 0.0917    recall@50: 0.1605    ndcg@5: 0.0242    ndcg@10: 0.0322    ndcg@20: 0.0401    ndcg@50: 0.0540    precision@5: 0.0080    precision@10: 0.0067    precision@20: 0.0051    precision@50: 0.0036    map@5: 0.0195    map@10: 0.0227    map@20: 0.0248    map@50: 0.0270    
+13 Jan 18:14    INFO epoch 16 training [time: 9.74s, train loss: 24.0098]
+13 Jan 18:14    INFO epoch 16 evaluating [time: 3.13s, valid_score: 0.091700]
+13 Jan 18:14    INFO valid result: 
+recall@5: 0.0366    recall@10: 0.0588    recall@20: 0.0917    recall@50: 0.1582    ndcg@5: 0.0244    ndcg@10: 0.0315    ndcg@20: 0.0399    ndcg@50: 0.0532    precision@5: 0.0077    precision@10: 0.0062    precision@20: 0.0048    precision@50: 0.0033    map@5: 0.0201    map@10: 0.0230    map@20: 0.0252    map@50: 0.0273    
+13 Jan 18:14    INFO test result: 
+recall@5: 0.0373    recall@10: 0.0619    recall@20: 0.0946    recall@50: 0.1620    ndcg@5: 0.0247    ndcg@10: 0.0328    ndcg@20: 0.0411    ndcg@50: 0.0547    precision@5: 0.0082    precision@10: 0.0068    precision@20: 0.0052    precision@50: 0.0036    map@5: 0.0199    map@10: 0.0232    map@20: 0.0254    map@50: 0.0275    
+13 Jan 18:14    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:14    INFO epoch 17 training [time: 9.74s, train loss: 22.8880]
+13 Jan 18:14    INFO epoch 17 evaluating [time: 3.13s, valid_score: 0.092800]
+13 Jan 18:14    INFO valid result: 
+recall@5: 0.0372    recall@10: 0.0590    recall@20: 0.0928    recall@50: 0.1587    ndcg@5: 0.0248    ndcg@10: 0.0319    ndcg@20: 0.0405    ndcg@50: 0.0536    precision@5: 0.0078    precision@10: 0.0062    precision@20: 0.0049    precision@50: 0.0034    map@5: 0.0205    map@10: 0.0234    map@20: 0.0256    map@50: 0.0277    
+13 Jan 18:14    INFO test result: 
+recall@5: 0.0377    recall@10: 0.0622    recall@20: 0.0944    recall@50: 0.1633    ndcg@5: 0.0250    ndcg@10: 0.0330    ndcg@20: 0.0413    ndcg@50: 0.0552    precision@5: 0.0083    precision@10: 0.0069    precision@20: 0.0052    precision@50: 0.0036    map@5: 0.0201    map@10: 0.0234    map@20: 0.0256    map@50: 0.0278    
+13 Jan 18:14    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:14    INFO epoch 18 training [time: 9.69s, train loss: 21.9406]
+13 Jan 18:14    INFO epoch 18 evaluating [time: 3.16s, valid_score: 0.093300]
+13 Jan 18:14    INFO valid result: 
+recall@5: 0.0371    recall@10: 0.0601    recall@20: 0.0933    recall@50: 0.1604    ndcg@5: 0.0245    ndcg@10: 0.0320    ndcg@20: 0.0404    ndcg@50: 0.0538    precision@5: 0.0077    precision@10: 0.0063    precision@20: 0.0049    precision@50: 0.0034    map@5: 0.0202    map@10: 0.0232    map@20: 0.0254    map@50: 0.0275    
+13 Jan 18:14    INFO test result: 
+recall@5: 0.0397    recall@10: 0.0624    recall@20: 0.0963    recall@50: 0.1646    ndcg@5: 0.0260    ndcg@10: 0.0334    ndcg@20: 0.0421    ndcg@50: 0.0559    precision@5: 0.0087    precision@10: 0.0068    precision@20: 0.0053    precision@50: 0.0037    map@5: 0.0208    map@10: 0.0238    map@20: 0.0261    map@50: 0.0283    
+13 Jan 18:14    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:15    INFO epoch 19 training [time: 9.56s, train loss: 21.1042]
+13 Jan 18:15    INFO epoch 19 evaluating [time: 3.10s, valid_score: 0.095300]
+13 Jan 18:15    INFO valid result: 
+recall@5: 0.0372    recall@10: 0.0604    recall@20: 0.0953    recall@50: 0.1618    ndcg@5: 0.0248    ndcg@10: 0.0324    ndcg@20: 0.0412    ndcg@50: 0.0545    precision@5: 0.0078    precision@10: 0.0064    precision@20: 0.0050    precision@50: 0.0034    map@5: 0.0205    map@10: 0.0235    map@20: 0.0259    map@50: 0.0280    
+13 Jan 18:15    INFO test result: 
+recall@5: 0.0391    recall@10: 0.0641    recall@20: 0.0957    recall@50: 0.1653    ndcg@5: 0.0260    ndcg@10: 0.0341    ndcg@20: 0.0422    ndcg@50: 0.0563    precision@5: 0.0087    precision@10: 0.0070    precision@20: 0.0053    precision@50: 0.0037    map@5: 0.0210    map@10: 0.0242    map@20: 0.0264    map@50: 0.0286    
+13 Jan 18:15    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:15    INFO epoch 20 training [time: 9.17s, train loss: 20.2851]
+13 Jan 18:15    INFO epoch 20 evaluating [time: 3.14s, valid_score: 0.094600]
+13 Jan 18:15    INFO valid result: 
+recall@5: 0.0372    recall@10: 0.0611    recall@20: 0.0946    recall@50: 0.1626    ndcg@5: 0.0249    ndcg@10: 0.0327    ndcg@20: 0.0412    ndcg@50: 0.0548    precision@5: 0.0078    precision@10: 0.0064    precision@20: 0.0050    precision@50: 0.0034    map@5: 0.0206    map@10: 0.0237    map@20: 0.0261    map@50: 0.0282    
+13 Jan 18:15    INFO test result: 
+recall@5: 0.0402    recall@10: 0.0640    recall@20: 0.0976    recall@50: 0.1658    ndcg@5: 0.0262    ndcg@10: 0.0340    ndcg@20: 0.0426    ndcg@50: 0.0564    precision@5: 0.0089    precision@10: 0.0070    precision@20: 0.0054    precision@50: 0.0037    map@5: 0.0209    map@10: 0.0241    map@20: 0.0263    map@50: 0.0285    
+13 Jan 18:15    INFO epoch 21 training [time: 9.57s, train loss: 19.6109]
+13 Jan 18:15    INFO epoch 21 evaluating [time: 4.01s, valid_score: 0.094800]
+13 Jan 18:15    INFO valid result: 
+recall@5: 0.0380    recall@10: 0.0617    recall@20: 0.0948    recall@50: 0.1625    ndcg@5: 0.0257    ndcg@10: 0.0333    ndcg@20: 0.0417    ndcg@50: 0.0552    precision@5: 0.0080    precision@10: 0.0065    precision@20: 0.0050    precision@50: 0.0034    map@5: 0.0213    map@10: 0.0244    map@20: 0.0266    map@50: 0.0288    
+13 Jan 18:15    INFO test result: 
+recall@5: 0.0395    recall@10: 0.0647    recall@20: 0.0969    recall@50: 0.1677    ndcg@5: 0.0259    ndcg@10: 0.0342    ndcg@20: 0.0425    ndcg@50: 0.0568    precision@5: 0.0087    precision@10: 0.0071    precision@20: 0.0054    precision@50: 0.0037    map@5: 0.0208    map@10: 0.0241    map@20: 0.0263    map@50: 0.0286    
+13 Jan 18:15    INFO epoch 22 training [time: 9.92s, train loss: 18.8268]
+13 Jan 18:15    INFO epoch 22 evaluating [time: 3.14s, valid_score: 0.094300]
+13 Jan 18:15    INFO valid result: 
+recall@5: 0.0380    recall@10: 0.0610    recall@20: 0.0943    recall@50: 0.1625    ndcg@5: 0.0255    ndcg@10: 0.0330    ndcg@20: 0.0414    ndcg@50: 0.0551    precision@5: 0.0080    precision@10: 0.0064    precision@20: 0.0050    precision@50: 0.0034    map@5: 0.0211    map@10: 0.0241    map@20: 0.0264    map@50: 0.0286    
+13 Jan 18:15    INFO test result: 
+recall@5: 0.0395    recall@10: 0.0656    recall@20: 0.0989    recall@50: 0.1673    ndcg@5: 0.0260    ndcg@10: 0.0346    ndcg@20: 0.0431    ndcg@50: 0.0570    precision@5: 0.0087    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0209    map@10: 0.0244    map@20: 0.0267    map@50: 0.0288    
+13 Jan 18:16    INFO epoch 23 training [time: 9.68s, train loss: 18.2803]
+13 Jan 18:16    INFO epoch 23 evaluating [time: 3.14s, valid_score: 0.096200]
+13 Jan 18:16    INFO valid result: 
+recall@5: 0.0384    recall@10: 0.0627    recall@20: 0.0962    recall@50: 0.1637    ndcg@5: 0.0254    ndcg@10: 0.0333    ndcg@20: 0.0418    ndcg@50: 0.0553    precision@5: 0.0081    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0208    map@10: 0.0240    map@20: 0.0263    map@50: 0.0285    
+13 Jan 18:16    INFO test result: 
+recall@5: 0.0403    recall@10: 0.0650    recall@20: 0.0994    recall@50: 0.1675    ndcg@5: 0.0264    ndcg@10: 0.0344    ndcg@20: 0.0433    ndcg@50: 0.0571    precision@5: 0.0089    precision@10: 0.0071    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0212    map@10: 0.0244    map@20: 0.0268    map@50: 0.0289    
+13 Jan 18:16    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:16    INFO epoch 24 training [time: 9.72s, train loss: 17.7122]
+13 Jan 18:16    INFO epoch 24 evaluating [time: 3.34s, valid_score: 0.095600]
+13 Jan 18:16    INFO valid result: 
+recall@5: 0.0384    recall@10: 0.0614    recall@20: 0.0956    recall@50: 0.1649    ndcg@5: 0.0255    ndcg@10: 0.0330    ndcg@20: 0.0417    ndcg@50: 0.0556    precision@5: 0.0081    precision@10: 0.0065    precision@20: 0.0050    precision@50: 0.0035    map@5: 0.0210    map@10: 0.0240    map@20: 0.0264    map@50: 0.0285    
+13 Jan 18:16    INFO test result: 
+recall@5: 0.0407    recall@10: 0.0650    recall@20: 0.0996    recall@50: 0.1690    ndcg@5: 0.0266    ndcg@10: 0.0346    ndcg@20: 0.0434    ndcg@50: 0.0575    precision@5: 0.0090    precision@10: 0.0071    precision@20: 0.0055    precision@50: 0.0038    map@5: 0.0213    map@10: 0.0245    map@20: 0.0269    map@50: 0.0290    
+13 Jan 18:16    INFO epoch 25 training [time: 9.58s, train loss: 17.1944]
+13 Jan 18:16    INFO epoch 25 evaluating [time: 3.17s, valid_score: 0.096900]
+13 Jan 18:16    INFO valid result: 
+recall@5: 0.0383    recall@10: 0.0623    recall@20: 0.0969    recall@50: 0.1647    ndcg@5: 0.0256    ndcg@10: 0.0334    ndcg@20: 0.0422    ndcg@50: 0.0557    precision@5: 0.0081    precision@10: 0.0065    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0212    map@10: 0.0243    map@20: 0.0267    map@50: 0.0288    
+13 Jan 18:16    INFO test result: 
+recall@5: 0.0400    recall@10: 0.0647    recall@20: 0.0999    recall@50: 0.1699    ndcg@5: 0.0262    ndcg@10: 0.0343    ndcg@20: 0.0434    ndcg@50: 0.0575    precision@5: 0.0088    precision@10: 0.0071    precision@20: 0.0055    precision@50: 0.0038    map@5: 0.0210    map@10: 0.0243    map@20: 0.0267    map@50: 0.0289    
+13 Jan 18:16    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:16    INFO epoch 26 training [time: 9.43s, train loss: 16.7618]
+13 Jan 18:17    INFO epoch 26 evaluating [time: 3.15s, valid_score: 0.097000]
+13 Jan 18:17    INFO valid result: 
+recall@5: 0.0389    recall@10: 0.0625    recall@20: 0.0970    recall@50: 0.1656    ndcg@5: 0.0258    ndcg@10: 0.0335    ndcg@20: 0.0422    ndcg@50: 0.0559    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0212    map@10: 0.0243    map@20: 0.0267    map@50: 0.0288    
+13 Jan 18:17    INFO test result: 
+recall@5: 0.0403    recall@10: 0.0662    recall@20: 0.0998    recall@50: 0.1683    ndcg@5: 0.0266    ndcg@10: 0.0350    ndcg@20: 0.0436    ndcg@50: 0.0575    precision@5: 0.0090    precision@10: 0.0073    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0213    map@10: 0.0247    map@20: 0.0270    map@50: 0.0292    
+13 Jan 18:17    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:17    INFO epoch 27 training [time: 9.19s, train loss: 16.3361]
+13 Jan 18:17    INFO epoch 27 evaluating [time: 3.10s, valid_score: 0.096300]
+13 Jan 18:17    INFO valid result: 
+recall@5: 0.0388    recall@10: 0.0624    recall@20: 0.0963    recall@50: 0.1645    ndcg@5: 0.0258    ndcg@10: 0.0335    ndcg@20: 0.0421    ndcg@50: 0.0557    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0213    map@10: 0.0244    map@20: 0.0267    map@50: 0.0288    
+13 Jan 18:17    INFO test result: 
+recall@5: 0.0402    recall@10: 0.0652    recall@20: 0.1000    recall@50: 0.1671    ndcg@5: 0.0265    ndcg@10: 0.0347    ndcg@20: 0.0437    ndcg@50: 0.0573    precision@5: 0.0089    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0213    map@10: 0.0246    map@20: 0.0270    map@50: 0.0292    
+13 Jan 18:17    INFO epoch 28 training [time: 9.63s, train loss: 15.9478]
+13 Jan 18:17    INFO epoch 28 evaluating [time: 3.17s, valid_score: 0.098100]
+13 Jan 18:17    INFO valid result: 
+recall@5: 0.0398    recall@10: 0.0631    recall@20: 0.0981    recall@50: 0.1657    ndcg@5: 0.0264    ndcg@10: 0.0339    ndcg@20: 0.0428    ndcg@50: 0.0563    precision@5: 0.0084    precision@10: 0.0066    precision@20: 0.0052    precision@50: 0.0035    map@5: 0.0217    map@10: 0.0247    map@20: 0.0271    map@50: 0.0292    
+13 Jan 18:17    INFO test result: 
+recall@5: 0.0403    recall@10: 0.0653    recall@20: 0.1005    recall@50: 0.1684    ndcg@5: 0.0265    ndcg@10: 0.0347    ndcg@20: 0.0437    ndcg@50: 0.0575    precision@5: 0.0089    precision@10: 0.0072    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0213    map@10: 0.0246    map@20: 0.0270    map@50: 0.0292    
+13 Jan 18:17    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:17    INFO epoch 29 training [time: 9.72s, train loss: 15.6010]
+13 Jan 18:17    INFO epoch 29 evaluating [time: 3.12s, valid_score: 0.097100]
+13 Jan 18:17    INFO valid result: 
+recall@5: 0.0388    recall@10: 0.0627    recall@20: 0.0971    recall@50: 0.1651    ndcg@5: 0.0260    ndcg@10: 0.0338    ndcg@20: 0.0425    ndcg@50: 0.0561    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0215    map@10: 0.0246    map@20: 0.0270    map@50: 0.0291    
+13 Jan 18:17    INFO test result: 
+recall@5: 0.0405    recall@10: 0.0653    recall@20: 0.0996    recall@50: 0.1675    ndcg@5: 0.0270    ndcg@10: 0.0351    ndcg@20: 0.0440    ndcg@50: 0.0578    precision@5: 0.0089    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0219    map@10: 0.0251    map@20: 0.0275    map@50: 0.0297    
+13 Jan 18:17    INFO epoch 30 training [time: 9.63s, train loss: 15.3220]
+13 Jan 18:18    INFO epoch 30 evaluating [time: 3.06s, valid_score: 0.096800]
+13 Jan 18:18    INFO valid result: 
+recall@5: 0.0394    recall@10: 0.0619    recall@20: 0.0968    recall@50: 0.1644    ndcg@5: 0.0260    ndcg@10: 0.0333    ndcg@20: 0.0422    ndcg@50: 0.0557    precision@5: 0.0083    precision@10: 0.0065    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0213    map@10: 0.0242    map@20: 0.0266    map@50: 0.0287    
+13 Jan 18:18    INFO test result: 
+recall@5: 0.0414    recall@10: 0.0664    recall@20: 0.1005    recall@50: 0.1673    ndcg@5: 0.0270    ndcg@10: 0.0352    ndcg@20: 0.0440    ndcg@50: 0.0575    precision@5: 0.0091    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0216    map@10: 0.0249    map@20: 0.0273    map@50: 0.0294    
+13 Jan 18:18    INFO epoch 31 training [time: 9.59s, train loss: 14.8833]
+13 Jan 18:18    INFO epoch 31 evaluating [time: 3.19s, valid_score: 0.096600]
+13 Jan 18:18    INFO valid result: 
+recall@5: 0.0387    recall@10: 0.0629    recall@20: 0.0966    recall@50: 0.1649    ndcg@5: 0.0260    ndcg@10: 0.0339    ndcg@20: 0.0425    ndcg@50: 0.0561    precision@5: 0.0081    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0215    map@10: 0.0247    map@20: 0.0270    map@50: 0.0292    
+13 Jan 18:18    INFO test result: 
+recall@5: 0.0405    recall@10: 0.0658    recall@20: 0.1016    recall@50: 0.1679    ndcg@5: 0.0270    ndcg@10: 0.0353    ndcg@20: 0.0445    ndcg@50: 0.0579    precision@5: 0.0089    precision@10: 0.0072    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0219    map@10: 0.0252    map@20: 0.0277    map@50: 0.0298    
+13 Jan 18:18    INFO epoch 32 training [time: 9.51s, train loss: 14.6778]
+13 Jan 18:18    INFO epoch 32 evaluating [time: 3.14s, valid_score: 0.096700]
+13 Jan 18:18    INFO valid result: 
+recall@5: 0.0398    recall@10: 0.0632    recall@20: 0.0967    recall@50: 0.1632    ndcg@5: 0.0263    ndcg@10: 0.0338    ndcg@20: 0.0423    ndcg@50: 0.0557    precision@5: 0.0084    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0215    map@10: 0.0245    map@20: 0.0268    map@50: 0.0289    
+13 Jan 18:18    INFO test result: 
+recall@5: 0.0403    recall@10: 0.0668    recall@20: 0.1007    recall@50: 0.1673    ndcg@5: 0.0268    ndcg@10: 0.0355    ndcg@20: 0.0442    ndcg@50: 0.0577    precision@5: 0.0089    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0217    map@10: 0.0252    map@20: 0.0275    map@50: 0.0296    
+13 Jan 18:18    INFO epoch 33 training [time: 9.55s, train loss: 14.3802]
+13 Jan 18:18    INFO epoch 33 evaluating [time: 3.27s, valid_score: 0.096500]
+13 Jan 18:18    INFO valid result: 
+recall@5: 0.0391    recall@10: 0.0631    recall@20: 0.0965    recall@50: 0.1643    ndcg@5: 0.0259    ndcg@10: 0.0336    ndcg@20: 0.0422    ndcg@50: 0.0558    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0213    map@10: 0.0244    map@20: 0.0267    map@50: 0.0288    
+13 Jan 18:18    INFO test result: 
+recall@5: 0.0409    recall@10: 0.0657    recall@20: 0.1008    recall@50: 0.1685    ndcg@5: 0.0268    ndcg@10: 0.0349    ndcg@20: 0.0439    ndcg@50: 0.0577    precision@5: 0.0090    precision@10: 0.0072    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0215    map@10: 0.0248    map@20: 0.0272    map@50: 0.0293    
+13 Jan 18:19    INFO epoch 34 training [time: 9.50s, train loss: 14.1666]
+13 Jan 18:19    INFO epoch 34 evaluating [time: 3.08s, valid_score: 0.098400]
+13 Jan 18:19    INFO valid result: 
+recall@5: 0.0389    recall@10: 0.0631    recall@20: 0.0984    recall@50: 0.1647    ndcg@5: 0.0257    ndcg@10: 0.0335    ndcg@20: 0.0425    ndcg@50: 0.0558    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0052    precision@50: 0.0035    map@5: 0.0210    map@10: 0.0242    map@20: 0.0266    map@50: 0.0287    
+13 Jan 18:19    INFO test result: 
+recall@5: 0.0404    recall@10: 0.0664    recall@20: 0.1014    recall@50: 0.1678    ndcg@5: 0.0267    ndcg@10: 0.0352    ndcg@20: 0.0443    ndcg@50: 0.0577    precision@5: 0.0089    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0215    map@10: 0.0249    map@20: 0.0273    map@50: 0.0294    
+13 Jan 18:19    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:19    INFO epoch 35 training [time: 9.55s, train loss: 13.9031]
+13 Jan 18:19    INFO epoch 35 evaluating [time: 3.09s, valid_score: 0.096500]
+13 Jan 18:19    INFO valid result: 
+recall@5: 0.0390    recall@10: 0.0630    recall@20: 0.0965    recall@50: 0.1653    ndcg@5: 0.0259    ndcg@10: 0.0337    ndcg@20: 0.0422    ndcg@50: 0.0560    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0213    map@10: 0.0245    map@20: 0.0268    map@50: 0.0290    
+13 Jan 18:19    INFO test result: 
+recall@5: 0.0416    recall@10: 0.0663    recall@20: 0.0993    recall@50: 0.1677    ndcg@5: 0.0276    ndcg@10: 0.0357    ndcg@20: 0.0442    ndcg@50: 0.0580    precision@5: 0.0092    precision@10: 0.0073    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0223    map@10: 0.0255    map@20: 0.0278    map@50: 0.0300    
+13 Jan 18:19    INFO epoch 36 training [time: 9.41s, train loss: 13.7501]
+13 Jan 18:19    INFO epoch 36 evaluating [time: 3.10s, valid_score: 0.096700]
+13 Jan 18:19    INFO valid result: 
+recall@5: 0.0396    recall@10: 0.0628    recall@20: 0.0967    recall@50: 0.1637    ndcg@5: 0.0261    ndcg@10: 0.0336    ndcg@20: 0.0422    ndcg@50: 0.0556    precision@5: 0.0083    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0213    map@10: 0.0243    map@20: 0.0267    map@50: 0.0288    
+13 Jan 18:19    INFO test result: 
+recall@5: 0.0413    recall@10: 0.0667    recall@20: 0.1007    recall@50: 0.1668    ndcg@5: 0.0272    ndcg@10: 0.0355    ndcg@20: 0.0443    ndcg@50: 0.0577    precision@5: 0.0091    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0219    map@10: 0.0253    map@20: 0.0276    map@50: 0.0297    
+13 Jan 18:19    INFO epoch 37 training [time: 9.50s, train loss: 13.5753]
+13 Jan 18:19    INFO epoch 37 evaluating [time: 3.08s, valid_score: 0.096400]
+13 Jan 18:19    INFO valid result: 
+recall@5: 0.0390    recall@10: 0.0616    recall@20: 0.0964    recall@50: 0.1639    ndcg@5: 0.0261    ndcg@10: 0.0335    ndcg@20: 0.0423    ndcg@50: 0.0558    precision@5: 0.0082    precision@10: 0.0065    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0216    map@10: 0.0246    map@20: 0.0269    map@50: 0.0291    
+13 Jan 18:19    INFO test result: 
+recall@5: 0.0401    recall@10: 0.0651    recall@20: 0.1008    recall@50: 0.1663    ndcg@5: 0.0269    ndcg@10: 0.0350    ndcg@20: 0.0442    ndcg@50: 0.0575    precision@5: 0.0089    precision@10: 0.0072    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0218    map@10: 0.0251    map@20: 0.0276    map@50: 0.0296    
+13 Jan 18:20    INFO epoch 38 training [time: 9.39s, train loss: 13.3479]
+13 Jan 18:20    INFO epoch 38 evaluating [time: 3.15s, valid_score: 0.097100]
+13 Jan 18:20    INFO valid result: 
+recall@5: 0.0391    recall@10: 0.0638    recall@20: 0.0971    recall@50: 0.1631    ndcg@5: 0.0262    ndcg@10: 0.0342    ndcg@20: 0.0427    ndcg@50: 0.0559    precision@5: 0.0082    precision@10: 0.0067    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0217    map@10: 0.0249    map@20: 0.0272    map@50: 0.0293    
+13 Jan 18:20    INFO test result: 
+recall@5: 0.0402    recall@10: 0.0665    recall@20: 0.1017    recall@50: 0.1674    ndcg@5: 0.0267    ndcg@10: 0.0352    ndcg@20: 0.0443    ndcg@50: 0.0576    precision@5: 0.0089    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0215    map@10: 0.0250    map@20: 0.0274    map@50: 0.0295    
+13 Jan 18:20    INFO epoch 39 training [time: 9.54s, train loss: 13.1935]
+13 Jan 18:20    INFO epoch 39 evaluating [time: 3.18s, valid_score: 0.096800]
+13 Jan 18:20    INFO valid result: 
+recall@5: 0.0390    recall@10: 0.0623    recall@20: 0.0968    recall@50: 0.1618    ndcg@5: 0.0261    ndcg@10: 0.0336    ndcg@20: 0.0424    ndcg@50: 0.0554    precision@5: 0.0082    precision@10: 0.0065    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0215    map@10: 0.0246    map@20: 0.0269    map@50: 0.0290    
+13 Jan 18:20    INFO test result: 
+recall@5: 0.0402    recall@10: 0.0657    recall@20: 0.1003    recall@50: 0.1652    ndcg@5: 0.0270    ndcg@10: 0.0354    ndcg@20: 0.0443    ndcg@50: 0.0574    precision@5: 0.0089    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0219    map@10: 0.0253    map@20: 0.0277    map@50: 0.0298    
+13 Jan 18:20    INFO epoch 40 training [time: 9.52s, train loss: 12.9839]
+13 Jan 18:20    INFO epoch 40 evaluating [time: 3.16s, valid_score: 0.096700]
+13 Jan 18:20    INFO valid result: 
+recall@5: 0.0401    recall@10: 0.0625    recall@20: 0.0967    recall@50: 0.1616    ndcg@5: 0.0263    ndcg@10: 0.0336    ndcg@20: 0.0423    ndcg@50: 0.0553    precision@5: 0.0084    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0215    map@10: 0.0244    map@20: 0.0268    map@50: 0.0289    
+13 Jan 18:20    INFO test result: 
+recall@5: 0.0402    recall@10: 0.0659    recall@20: 0.1003    recall@50: 0.1673    ndcg@5: 0.0269    ndcg@10: 0.0353    ndcg@20: 0.0441    ndcg@50: 0.0577    precision@5: 0.0089    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0219    map@10: 0.0252    map@20: 0.0276    map@50: 0.0297    
+13 Jan 18:20    INFO epoch 41 training [time: 9.56s, train loss: 12.8534]
+13 Jan 18:20    INFO epoch 41 evaluating [time: 3.14s, valid_score: 0.096400]
+13 Jan 18:20    INFO valid result: 
+recall@5: 0.0398    recall@10: 0.0629    recall@20: 0.0964    recall@50: 0.1601    ndcg@5: 0.0262    ndcg@10: 0.0337    ndcg@20: 0.0422    ndcg@50: 0.0549    precision@5: 0.0084    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0214    map@10: 0.0244    map@20: 0.0267    map@50: 0.0287    
+13 Jan 18:20    INFO test result: 
+recall@5: 0.0401    recall@10: 0.0657    recall@20: 0.0988    recall@50: 0.1659    ndcg@5: 0.0267    ndcg@10: 0.0351    ndcg@20: 0.0436    ndcg@50: 0.0572    precision@5: 0.0088    precision@10: 0.0072    precision@20: 0.0054    precision@50: 0.0037    map@5: 0.0217    map@10: 0.0250    map@20: 0.0273    map@50: 0.0294    
+13 Jan 18:21    INFO epoch 42 training [time: 9.58s, train loss: 12.6858]
+13 Jan 18:21    INFO epoch 42 evaluating [time: 3.32s, valid_score: 0.096900]
+13 Jan 18:21    INFO valid result: 
+recall@5: 0.0387    recall@10: 0.0626    recall@20: 0.0969    recall@50: 0.1601    ndcg@5: 0.0258    ndcg@10: 0.0335    ndcg@20: 0.0422    ndcg@50: 0.0549    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0212    map@10: 0.0243    map@20: 0.0267    map@50: 0.0287    
+13 Jan 18:21    INFO test result: 
+recall@5: 0.0398    recall@10: 0.0658    recall@20: 0.1005    recall@50: 0.1660    ndcg@5: 0.0269    ndcg@10: 0.0354    ndcg@20: 0.0443    ndcg@50: 0.0575    precision@5: 0.0088    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0219    map@10: 0.0253    map@20: 0.0277    map@50: 0.0298    
+13 Jan 18:21    INFO epoch 43 training [time: 9.62s, train loss: 12.5455]
+13 Jan 18:21    INFO epoch 43 evaluating [time: 3.12s, valid_score: 0.095600]
+13 Jan 18:21    INFO valid result: 
+recall@5: 0.0388    recall@10: 0.0630    recall@20: 0.0956    recall@50: 0.1608    ndcg@5: 0.0259    ndcg@10: 0.0337    ndcg@20: 0.0420    ndcg@50: 0.0551    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0050    precision@50: 0.0034    map@5: 0.0213    map@10: 0.0244    map@20: 0.0267    map@50: 0.0288    
+13 Jan 18:21    INFO test result: 
+recall@5: 0.0401    recall@10: 0.0646    recall@20: 0.1001    recall@50: 0.1648    ndcg@5: 0.0267    ndcg@10: 0.0347    ndcg@20: 0.0439    ndcg@50: 0.0570    precision@5: 0.0088    precision@10: 0.0071    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0216    map@10: 0.0248    map@20: 0.0273    map@50: 0.0294    
+13 Jan 18:21    INFO epoch 44 training [time: 9.61s, train loss: 12.4121]
+13 Jan 18:21    INFO epoch 44 evaluating [time: 3.18s, valid_score: 0.096600]
+13 Jan 18:21    INFO valid result: 
+recall@5: 0.0389    recall@10: 0.0620    recall@20: 0.0966    recall@50: 0.1593    ndcg@5: 0.0262    ndcg@10: 0.0336    ndcg@20: 0.0424    ndcg@50: 0.0549    precision@5: 0.0082    precision@10: 0.0065    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0216    map@10: 0.0247    map@20: 0.0270    map@50: 0.0290    
+13 Jan 18:21    INFO test result: 
+recall@5: 0.0403    recall@10: 0.0641    recall@20: 0.1004    recall@50: 0.1640    ndcg@5: 0.0267    ndcg@10: 0.0345    ndcg@20: 0.0439    ndcg@50: 0.0567    precision@5: 0.0089    precision@10: 0.0071    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0215    map@10: 0.0247    map@20: 0.0272    map@50: 0.0292    
+13 Jan 18:21    INFO epoch 45 training [time: 9.68s, train loss: 12.2754]
+13 Jan 18:22    INFO epoch 45 evaluating [time: 3.05s, valid_score: 0.095700]
+13 Jan 18:22    INFO valid result: 
+recall@5: 0.0397    recall@10: 0.0606    recall@20: 0.0957    recall@50: 0.1587    ndcg@5: 0.0263    ndcg@10: 0.0331    ndcg@20: 0.0420    ndcg@50: 0.0546    precision@5: 0.0083    precision@10: 0.0064    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0216    map@10: 0.0244    map@20: 0.0268    map@50: 0.0288    
+13 Jan 18:22    INFO test result: 
+recall@5: 0.0393    recall@10: 0.0643    recall@20: 0.0988    recall@50: 0.1646    ndcg@5: 0.0263    ndcg@10: 0.0346    ndcg@20: 0.0434    ndcg@50: 0.0567    precision@5: 0.0087    precision@10: 0.0071    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0214    map@10: 0.0247    map@20: 0.0271    map@50: 0.0292    
+13 Jan 18:22    INFO +++++Finished training, best eval result in epoch 34
+13 Jan 18:22    INFO best valid result: recall@5: 0.0389    recall@10: 0.0631    recall@20: 0.0984    recall@50: 0.1647    ndcg@5: 0.0257    ndcg@10: 0.0335    ndcg@20: 0.0425    ndcg@50: 0.0558    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0052    precision@50: 0.0035    map@5: 0.0210    map@10: 0.0242    map@20: 0.0266    map@50: 0.0287    
+13 Jan 18:22    INFO test result: recall@5: 0.0404    recall@10: 0.0664    recall@20: 0.1014    recall@50: 0.1678    ndcg@5: 0.0267    ndcg@10: 0.0352    ndcg@20: 0.0443    ndcg@50: 0.0577    precision@5: 0.0089    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0215    map@10: 0.0249    map@20: 0.0273    map@50: 0.0294    
+13 Jan 18:22    INFO ████Current BEST████:
+Parameters: ['seed', 'rf_loss_weight']=(999, 0.1),
+Valid: recall@5: 0.0408    recall@10: 0.0634    recall@20: 0.0988    recall@50: 0.1628    ndcg@5: 0.0268    ndcg@10: 0.0341    ndcg@20: 0.0431    ndcg@50: 0.0559    precision@5: 0.0086    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0034    map@5: 0.0219    map@10: 0.0248    map@20: 0.0272    map@50: 0.0293    ,
+Test: recall@5: 0.0415    recall@10: 0.0664    recall@20: 0.1015    recall@50: 0.1685    ndcg@5: 0.0273    ndcg@10: 0.0354    ndcg@20: 0.0445    ndcg@50: 0.0580    precision@5: 0.0091    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0038    map@5: 0.0220    map@10: 0.0252    map@20: 0.0276    map@50: 0.0298    
+
+
+
+13 Jan 18:22    INFO =========3/3: Parameters:['seed', 'rf_loss_weight']=(999, 0.2)=======
+13 Jan 18:22    INFO RFGUME(
+  (user_embedding): Embedding(19445, 64)
+  (item_id_embedding): Embedding(7050, 64)
+  (extended_image_user): Embedding(19445, 64)
+  (extended_text_user): Embedding(19445, 64)
+  (image_embedding): Embedding(7050, 4096)
+  (text_embedding): Embedding(7050, 384)
+  (image_reduce_dim): Linear(in_features=4096, out_features=64, bias=True)
+  (image_trans_dim): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Sigmoid()
+  )
+  (image_space_trans): Sequential(
+    (0): Linear(in_features=4096, out_features=64, bias=True)
+    (1): Sequential(
+      (0): Linear(in_features=64, out_features=64, bias=True)
+      (1): Sigmoid()
+    )
+  )
+  (text_reduce_dim): Linear(in_features=384, out_features=64, bias=True)
+  (text_trans_dim): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Sigmoid()
+  )
+  (text_space_trans): Sequential(
+    (0): Linear(in_features=384, out_features=64, bias=True)
+    (1): Sequential(
+      (0): Linear(in_features=64, out_features=64, bias=True)
+      (1): Sigmoid()
+    )
+  )
+  (separate_coarse): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Tanh()
+    (2): Linear(in_features=64, out_features=1, bias=False)
+  )
+  (softmax): Softmax(dim=-1)
+  (image_behavior): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Sigmoid()
+  )
+  (text_behavior): Sequential(
+    (0): Linear(in_features=64, out_features=64, bias=True)
+    (1): Sigmoid()
+  )
+  (rf_generator): RFExtendedIdGenerator(
+    (velocity_net): SimpleVelocityNet(
+      (time_embed): Sequential(
+        (0): SinusoidalPositionEmbedding()
+        (1): Linear(in_features=64, out_features=128, bias=True)
+        (2): SiLU()
+        (3): Dropout(p=0.1, inplace=False)
+      )
+      (condition_encoder): Sequential(
+        (0): Linear(in_features=128, out_features=128, bias=True)
+        (1): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+        (2): SiLU()
+        (3): Dropout(p=0.1, inplace=False)
+      )
+      (input_proj): Sequential(
+        (0): Linear(in_features=64, out_features=128, bias=True)
+        (1): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+        (2): SiLU()
+        (3): Dropout(p=0.1, inplace=False)
+      )
+      (res_blocks): ModuleList(
+        (0-1): 2 x ResidualBlock(
+          (net): Sequential(
+            (0): Linear(in_features=128, out_features=128, bias=True)
+            (1): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+            (2): SiLU()
+            (3): Dropout(p=0.1, inplace=False)
+            (4): Linear(in_features=128, out_features=128, bias=True)
+            (5): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+          )
+          (skip): Identity()
+        )
+      )
+      (output_proj): Sequential(
+        (0): Linear(in_features=128, out_features=128, bias=True)
+        (1): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+        (2): SiLU()
+        (3): Dropout(p=0.1, inplace=False)
+        (4): Linear(in_features=128, out_features=64, bias=True)
+      )
+    )
+  )
+)
+Trainable parameters: 36202112
+13 Jan 18:22    INFO epoch 0 training [time: 9.62s, train loss: 49.0475]
+13 Jan 18:22    INFO epoch 0 evaluating [time: 2.93s, valid_score: 0.048500]
+13 Jan 18:22    INFO valid result: 
+recall@5: 0.0214    recall@10: 0.0324    recall@20: 0.0485    recall@50: 0.0734    ndcg@5: 0.0146    ndcg@10: 0.0181    ndcg@20: 0.0222    ndcg@50: 0.0272    precision@5: 0.0044    precision@10: 0.0034    precision@20: 0.0025    precision@50: 0.0015    map@5: 0.0122    map@10: 0.0136    map@20: 0.0147    map@50: 0.0155    
+13 Jan 18:22    INFO test result: 
+recall@5: 0.0203    recall@10: 0.0320    recall@20: 0.0485    recall@50: 0.0759    ndcg@5: 0.0138    ndcg@10: 0.0177    ndcg@20: 0.0219    ndcg@50: 0.0275    precision@5: 0.0045    precision@10: 0.0035    precision@20: 0.0027    precision@50: 0.0017    map@5: 0.0114    map@10: 0.0129    map@20: 0.0141    map@50: 0.0149    
+13 Jan 18:22    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:22    INFO epoch 1 training [time: 9.64s, train loss: 47.6982]
+13 Jan 18:22    INFO epoch 1 evaluating [time: 2.95s, valid_score: 0.047300]
+13 Jan 18:22    INFO valid result: 
+recall@5: 0.0217    recall@10: 0.0316    recall@20: 0.0473    recall@50: 0.0707    ndcg@5: 0.0148    ndcg@10: 0.0180    ndcg@20: 0.0220    ndcg@50: 0.0267    precision@5: 0.0045    precision@10: 0.0033    precision@20: 0.0025    precision@50: 0.0015    map@5: 0.0125    map@10: 0.0137    map@20: 0.0148    map@50: 0.0155    
+13 Jan 18:22    INFO test result: 
+recall@5: 0.0202    recall@10: 0.0327    recall@20: 0.0462    recall@50: 0.0723    ndcg@5: 0.0135    ndcg@10: 0.0176    ndcg@20: 0.0211    ndcg@50: 0.0263    precision@5: 0.0044    precision@10: 0.0036    precision@20: 0.0025    precision@50: 0.0016    map@5: 0.0110    map@10: 0.0127    map@20: 0.0136    map@50: 0.0144    
+13 Jan 18:22    INFO epoch 2 training [time: 9.74s, train loss: 47.5511]
+13 Jan 18:22    INFO epoch 2 evaluating [time: 2.93s, valid_score: 0.046900]
+13 Jan 18:22    INFO valid result: 
+recall@5: 0.0223    recall@10: 0.0320    recall@20: 0.0469    recall@50: 0.0721    ndcg@5: 0.0152    ndcg@10: 0.0184    ndcg@20: 0.0222    ndcg@50: 0.0272    precision@5: 0.0046    precision@10: 0.0033    precision@20: 0.0024    precision@50: 0.0015    map@5: 0.0128    map@10: 0.0140    map@20: 0.0151    map@50: 0.0159    
+13 Jan 18:22    INFO test result: 
+recall@5: 0.0205    recall@10: 0.0329    recall@20: 0.0464    recall@50: 0.0729    ndcg@5: 0.0136    ndcg@10: 0.0177    ndcg@20: 0.0211    ndcg@50: 0.0265    precision@5: 0.0044    precision@10: 0.0036    precision@20: 0.0025    precision@50: 0.0016    map@5: 0.0111    map@10: 0.0127    map@20: 0.0136    map@50: 0.0145    
+13 Jan 18:23    INFO epoch 3 training [time: 9.49s, train loss: 47.4647]
+13 Jan 18:23    INFO epoch 3 evaluating [time: 3.18s, valid_score: 0.048400]
+13 Jan 18:23    INFO valid result: 
+recall@5: 0.0228    recall@10: 0.0338    recall@20: 0.0484    recall@50: 0.0742    ndcg@5: 0.0155    ndcg@10: 0.0190    ndcg@20: 0.0227    ndcg@50: 0.0279    precision@5: 0.0047    precision@10: 0.0035    precision@20: 0.0025    precision@50: 0.0016    map@5: 0.0129    map@10: 0.0143    map@20: 0.0153    map@50: 0.0161    
+13 Jan 18:23    INFO test result: 
+recall@5: 0.0212    recall@10: 0.0333    recall@20: 0.0483    recall@50: 0.0752    ndcg@5: 0.0142    ndcg@10: 0.0182    ndcg@20: 0.0221    ndcg@50: 0.0275    precision@5: 0.0046    precision@10: 0.0036    precision@20: 0.0026    precision@50: 0.0017    map@5: 0.0116    map@10: 0.0132    map@20: 0.0143    map@50: 0.0151    
+13 Jan 18:23    INFO epoch 4 training [time: 9.60s, train loss: 47.3896]
+13 Jan 18:23    INFO epoch 4 evaluating [time: 2.95s, valid_score: 0.051500]
+13 Jan 18:23    INFO valid result: 
+recall@5: 0.0239    recall@10: 0.0352    recall@20: 0.0515    recall@50: 0.0784    ndcg@5: 0.0162    ndcg@10: 0.0199    ndcg@20: 0.0240    ndcg@50: 0.0294    precision@5: 0.0050    precision@10: 0.0037    precision@20: 0.0027    precision@50: 0.0016    map@5: 0.0135    map@10: 0.0150    map@20: 0.0161    map@50: 0.0170    
+13 Jan 18:23    INFO test result: 
+recall@5: 0.0226    recall@10: 0.0343    recall@20: 0.0506    recall@50: 0.0800    ndcg@5: 0.0151    ndcg@10: 0.0189    ndcg@20: 0.0231    ndcg@50: 0.0291    precision@5: 0.0049    precision@10: 0.0037    precision@20: 0.0028    precision@50: 0.0018    map@5: 0.0123    map@10: 0.0138    map@20: 0.0150    map@50: 0.0159    
+13 Jan 18:23    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:23    INFO epoch 5 training [time: 9.50s, train loss: 46.3761]
+13 Jan 18:23    INFO epoch 5 evaluating [time: 3.12s, valid_score: 0.033200]
+13 Jan 18:23    INFO valid result: 
+recall@5: 0.0136    recall@10: 0.0211    recall@20: 0.0332    recall@50: 0.0567    ndcg@5: 0.0086    ndcg@10: 0.0110    ndcg@20: 0.0141    ndcg@50: 0.0188    precision@5: 0.0028    precision@10: 0.0022    precision@20: 0.0017    precision@50: 0.0012    map@5: 0.0069    map@10: 0.0078    map@20: 0.0087    map@50: 0.0094    
+13 Jan 18:23    INFO test result: 
+recall@5: 0.0128    recall@10: 0.0211    recall@20: 0.0339    recall@50: 0.0576    ndcg@5: 0.0081    ndcg@10: 0.0108    ndcg@20: 0.0141    ndcg@50: 0.0189    precision@5: 0.0027    precision@10: 0.0023    precision@20: 0.0018    precision@50: 0.0013    map@5: 0.0064    map@10: 0.0075    map@20: 0.0084    map@50: 0.0091    
+13 Jan 18:23    INFO epoch 6 training [time: 9.89s, train loss: 45.2698]
+13 Jan 18:24    INFO epoch 6 evaluating [time: 3.32s, valid_score: 0.051400]
+13 Jan 18:24    INFO valid result: 
+recall@5: 0.0221    recall@10: 0.0345    recall@20: 0.0514    recall@50: 0.0887    ndcg@5: 0.0140    ndcg@10: 0.0180    ndcg@20: 0.0223    ndcg@50: 0.0297    precision@5: 0.0046    precision@10: 0.0036    precision@20: 0.0027    precision@50: 0.0019    map@5: 0.0111    map@10: 0.0128    map@20: 0.0139    map@50: 0.0151    
+13 Jan 18:24    INFO test result: 
+recall@5: 0.0201    recall@10: 0.0335    recall@20: 0.0530    recall@50: 0.0890    ndcg@5: 0.0132    ndcg@10: 0.0177    ndcg@20: 0.0226    ndcg@50: 0.0299    precision@5: 0.0044    precision@10: 0.0037    precision@20: 0.0029    precision@50: 0.0020    map@5: 0.0106    map@10: 0.0124    map@20: 0.0137    map@50: 0.0148    
+13 Jan 18:24    INFO epoch 7 training [time: 9.73s, train loss: 43.5896]
+13 Jan 18:24    INFO epoch 7 evaluating [time: 3.21s, valid_score: 0.068800]
+13 Jan 18:24    INFO valid result: 
+recall@5: 0.0286    recall@10: 0.0453    recall@20: 0.0688    recall@50: 0.1144    ndcg@5: 0.0188    ndcg@10: 0.0242    ndcg@20: 0.0302    ndcg@50: 0.0393    precision@5: 0.0060    precision@10: 0.0048    precision@20: 0.0036    precision@50: 0.0024    map@5: 0.0154    map@10: 0.0176    map@20: 0.0192    map@50: 0.0206    
+13 Jan 18:24    INFO test result: 
+recall@5: 0.0289    recall@10: 0.0443    recall@20: 0.0679    recall@50: 0.1187    ndcg@5: 0.0188    ndcg@10: 0.0238    ndcg@20: 0.0299    ndcg@50: 0.0402    precision@5: 0.0064    precision@10: 0.0049    precision@20: 0.0038    precision@50: 0.0026    map@5: 0.0149    map@10: 0.0169    map@20: 0.0186    map@50: 0.0202    
+13 Jan 18:24    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:24    INFO epoch 8 training [time: 9.77s, train loss: 41.2757]
+13 Jan 18:24    INFO epoch 8 evaluating [time: 3.13s, valid_score: 0.078400]
+13 Jan 18:24    INFO valid result: 
+recall@5: 0.0330    recall@10: 0.0504    recall@20: 0.0784    recall@50: 0.1363    ndcg@5: 0.0219    ndcg@10: 0.0275    ndcg@20: 0.0347    ndcg@50: 0.0462    precision@5: 0.0069    precision@10: 0.0053    precision@20: 0.0042    precision@50: 0.0029    map@5: 0.0180    map@10: 0.0202    map@20: 0.0222    map@50: 0.0240    
+13 Jan 18:24    INFO test result: 
+recall@5: 0.0332    recall@10: 0.0532    recall@20: 0.0823    recall@50: 0.1399    ndcg@5: 0.0222    ndcg@10: 0.0288    ndcg@20: 0.0363    ndcg@50: 0.0480    precision@5: 0.0073    precision@10: 0.0059    precision@20: 0.0046    precision@50: 0.0031    map@5: 0.0180    map@10: 0.0207    map@20: 0.0227    map@50: 0.0245    
+13 Jan 18:24    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:24    INFO epoch 9 training [time: 9.74s, train loss: 38.3620]
+13 Jan 18:24    INFO epoch 9 evaluating [time: 3.38s, valid_score: 0.084200]
+13 Jan 18:24    INFO valid result: 
+recall@5: 0.0351    recall@10: 0.0550    recall@20: 0.0842    recall@50: 0.1426    ndcg@5: 0.0233    ndcg@10: 0.0297    ndcg@20: 0.0372    ndcg@50: 0.0489    precision@5: 0.0073    precision@10: 0.0058    precision@20: 0.0044    precision@50: 0.0030    map@5: 0.0192    map@10: 0.0218    map@20: 0.0238    map@50: 0.0256    
+13 Jan 18:24    INFO test result: 
+recall@5: 0.0353    recall@10: 0.0573    recall@20: 0.0886    recall@50: 0.1488    ndcg@5: 0.0237    ndcg@10: 0.0309    ndcg@20: 0.0390    ndcg@50: 0.0512    precision@5: 0.0078    precision@10: 0.0063    precision@20: 0.0049    precision@50: 0.0033    map@5: 0.0192    map@10: 0.0221    map@20: 0.0243    map@50: 0.0262    
+13 Jan 18:24    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:25    INFO epoch 10 training [time: 9.75s, train loss: 34.9989]
+13 Jan 18:25    INFO epoch 10 evaluating [time: 3.18s, valid_score: 0.087500]
+13 Jan 18:25    INFO valid result: 
+recall@5: 0.0356    recall@10: 0.0563    recall@20: 0.0875    recall@50: 0.1486    ndcg@5: 0.0239    ndcg@10: 0.0307    ndcg@20: 0.0386    ndcg@50: 0.0508    precision@5: 0.0075    precision@10: 0.0059    precision@20: 0.0046    precision@50: 0.0031    map@5: 0.0198    map@10: 0.0226    map@20: 0.0247    map@50: 0.0266    
+13 Jan 18:25    INFO test result: 
+recall@5: 0.0364    recall@10: 0.0588    recall@20: 0.0907    recall@50: 0.1520    ndcg@5: 0.0237    ndcg@10: 0.0311    ndcg@20: 0.0393    ndcg@50: 0.0517    precision@5: 0.0080    precision@10: 0.0065    precision@20: 0.0050    precision@50: 0.0034    map@5: 0.0189    map@10: 0.0219    map@20: 0.0241    map@50: 0.0260    
+13 Jan 18:25    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:25    INFO epoch 11 training [time: 9.68s, train loss: 31.9670]
+13 Jan 18:25    INFO epoch 11 evaluating [time: 3.15s, valid_score: 0.087600]
+13 Jan 18:25    INFO valid result: 
+recall@5: 0.0360    recall@10: 0.0574    recall@20: 0.0876    recall@50: 0.1520    ndcg@5: 0.0239    ndcg@10: 0.0308    ndcg@20: 0.0385    ndcg@50: 0.0514    precision@5: 0.0075    precision@10: 0.0060    precision@20: 0.0046    precision@50: 0.0032    map@5: 0.0197    map@10: 0.0225    map@20: 0.0246    map@50: 0.0266    
+13 Jan 18:25    INFO test result: 
+recall@5: 0.0370    recall@10: 0.0599    recall@20: 0.0918    recall@50: 0.1547    ndcg@5: 0.0244    ndcg@10: 0.0319    ndcg@20: 0.0401    ndcg@50: 0.0528    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0196    map@10: 0.0226    map@20: 0.0248    map@50: 0.0268    
+13 Jan 18:25    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:25    INFO epoch 12 training [time: 9.68s, train loss: 29.4909]
+13 Jan 18:25    INFO epoch 12 evaluating [time: 3.28s, valid_score: 0.088200]
+13 Jan 18:25    INFO valid result: 
+recall@5: 0.0358    recall@10: 0.0587    recall@20: 0.0882    recall@50: 0.1545    ndcg@5: 0.0234    ndcg@10: 0.0308    ndcg@20: 0.0383    ndcg@50: 0.0515    precision@5: 0.0075    precision@10: 0.0061    precision@20: 0.0046    precision@50: 0.0033    map@5: 0.0191    map@10: 0.0221    map@20: 0.0241    map@50: 0.0262    
+13 Jan 18:25    INFO test result: 
+recall@5: 0.0363    recall@10: 0.0588    recall@20: 0.0921    recall@50: 0.1562    ndcg@5: 0.0240    ndcg@10: 0.0314    ndcg@20: 0.0399    ndcg@50: 0.0529    precision@5: 0.0080    precision@10: 0.0065    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0194    map@10: 0.0223    map@20: 0.0246    map@50: 0.0266    
+13 Jan 18:25    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:25    INFO epoch 13 training [time: 9.56s, train loss: 27.4515]
+13 Jan 18:25    INFO epoch 13 evaluating [time: 3.15s, valid_score: 0.089000]
+13 Jan 18:25    INFO valid result: 
+recall@5: 0.0350    recall@10: 0.0571    recall@20: 0.0890    recall@50: 0.1539    ndcg@5: 0.0235    ndcg@10: 0.0307    ndcg@20: 0.0387    ndcg@50: 0.0517    precision@5: 0.0073    precision@10: 0.0060    precision@20: 0.0047    precision@50: 0.0033    map@5: 0.0195    map@10: 0.0223    map@20: 0.0245    map@50: 0.0265    
+13 Jan 18:25    INFO test result: 
+recall@5: 0.0358    recall@10: 0.0604    recall@20: 0.0924    recall@50: 0.1571    ndcg@5: 0.0236    ndcg@10: 0.0317    ndcg@20: 0.0399    ndcg@50: 0.0530    precision@5: 0.0079    precision@10: 0.0067    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0190    map@10: 0.0223    map@20: 0.0244    map@50: 0.0265    
+13 Jan 18:25    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:26    INFO epoch 14 training [time: 9.66s, train loss: 25.9007]
+13 Jan 18:26    INFO epoch 14 evaluating [time: 3.13s, valid_score: 0.091300]
+13 Jan 18:26    INFO valid result: 
+recall@5: 0.0368    recall@10: 0.0595    recall@20: 0.0913    recall@50: 0.1560    ndcg@5: 0.0243    ndcg@10: 0.0317    ndcg@20: 0.0397    ndcg@50: 0.0526    precision@5: 0.0077    precision@10: 0.0062    precision@20: 0.0048    precision@50: 0.0033    map@5: 0.0200    map@10: 0.0229    map@20: 0.0251    map@50: 0.0271    
+13 Jan 18:26    INFO test result: 
+recall@5: 0.0367    recall@10: 0.0608    recall@20: 0.0932    recall@50: 0.1599    ndcg@5: 0.0241    ndcg@10: 0.0320    ndcg@20: 0.0403    ndcg@50: 0.0538    precision@5: 0.0081    precision@10: 0.0067    precision@20: 0.0051    precision@50: 0.0036    map@5: 0.0194    map@10: 0.0225    map@20: 0.0248    map@50: 0.0269    
+13 Jan 18:26    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:26    INFO epoch 15 training [time: 9.72s, train loss: 24.5138]
+13 Jan 18:26    INFO epoch 15 evaluating [time: 3.13s, valid_score: 0.090500]
+13 Jan 18:26    INFO valid result: 
+recall@5: 0.0357    recall@10: 0.0582    recall@20: 0.0905    recall@50: 0.1579    ndcg@5: 0.0236    ndcg@10: 0.0309    ndcg@20: 0.0391    ndcg@50: 0.0525    precision@5: 0.0075    precision@10: 0.0061    precision@20: 0.0048    precision@50: 0.0033    map@5: 0.0194    map@10: 0.0224    map@20: 0.0245    map@50: 0.0266    
+13 Jan 18:26    INFO test result: 
+recall@5: 0.0371    recall@10: 0.0615    recall@20: 0.0938    recall@50: 0.1614    ndcg@5: 0.0244    ndcg@10: 0.0325    ndcg@20: 0.0407    ndcg@50: 0.0544    precision@5: 0.0082    precision@10: 0.0068    precision@20: 0.0052    precision@50: 0.0036    map@5: 0.0196    map@10: 0.0229    map@20: 0.0251    map@50: 0.0272    
+13 Jan 18:26    INFO epoch 16 training [time: 9.55s, train loss: 23.4491]
+13 Jan 18:26    INFO epoch 16 evaluating [time: 3.06s, valid_score: 0.093500]
+13 Jan 18:26    INFO valid result: 
+recall@5: 0.0372    recall@10: 0.0591    recall@20: 0.0935    recall@50: 0.1583    ndcg@5: 0.0246    ndcg@10: 0.0317    ndcg@20: 0.0404    ndcg@50: 0.0533    precision@5: 0.0078    precision@10: 0.0062    precision@20: 0.0049    precision@50: 0.0034    map@5: 0.0202    map@10: 0.0231    map@20: 0.0254    map@50: 0.0274    
+13 Jan 18:26    INFO test result: 
+recall@5: 0.0373    recall@10: 0.0623    recall@20: 0.0950    recall@50: 0.1619    ndcg@5: 0.0249    ndcg@10: 0.0331    ndcg@20: 0.0414    ndcg@50: 0.0550    precision@5: 0.0082    precision@10: 0.0069    precision@20: 0.0052    precision@50: 0.0036    map@5: 0.0201    map@10: 0.0234    map@20: 0.0257    map@50: 0.0278    
+13 Jan 18:26    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:26    INFO epoch 17 training [time: 9.68s, train loss: 22.3917]
+13 Jan 18:26    INFO epoch 17 evaluating [time: 3.12s, valid_score: 0.092000]
+13 Jan 18:26    INFO valid result: 
+recall@5: 0.0374    recall@10: 0.0604    recall@20: 0.0920    recall@50: 0.1604    ndcg@5: 0.0249    ndcg@10: 0.0324    ndcg@20: 0.0404    ndcg@50: 0.0541    precision@5: 0.0079    precision@10: 0.0064    precision@20: 0.0048    precision@50: 0.0034    map@5: 0.0205    map@10: 0.0236    map@20: 0.0257    map@50: 0.0279    
+13 Jan 18:26    INFO test result: 
+recall@5: 0.0387    recall@10: 0.0625    recall@20: 0.0954    recall@50: 0.1636    ndcg@5: 0.0255    ndcg@10: 0.0333    ndcg@20: 0.0418    ndcg@50: 0.0556    precision@5: 0.0085    precision@10: 0.0069    precision@20: 0.0053    precision@50: 0.0036    map@5: 0.0205    map@10: 0.0236    map@20: 0.0259    map@50: 0.0280    
+13 Jan 18:27    INFO epoch 18 training [time: 9.66s, train loss: 21.5206]
+13 Jan 18:27    INFO epoch 18 evaluating [time: 3.13s, valid_score: 0.093400]
+13 Jan 18:27    INFO valid result: 
+recall@5: 0.0368    recall@10: 0.0594    recall@20: 0.0934    recall@50: 0.1598    ndcg@5: 0.0244    ndcg@10: 0.0318    ndcg@20: 0.0404    ndcg@50: 0.0536    precision@5: 0.0077    precision@10: 0.0062    precision@20: 0.0049    precision@50: 0.0034    map@5: 0.0201    map@10: 0.0231    map@20: 0.0254    map@50: 0.0275    
+13 Jan 18:27    INFO test result: 
+recall@5: 0.0378    recall@10: 0.0625    recall@20: 0.0959    recall@50: 0.1648    ndcg@5: 0.0250    ndcg@10: 0.0330    ndcg@20: 0.0416    ndcg@50: 0.0555    precision@5: 0.0083    precision@10: 0.0069    precision@20: 0.0053    precision@50: 0.0037    map@5: 0.0201    map@10: 0.0233    map@20: 0.0256    map@50: 0.0278    
+13 Jan 18:27    INFO epoch 19 training [time: 9.63s, train loss: 20.7218]
+13 Jan 18:27    INFO epoch 19 evaluating [time: 3.13s, valid_score: 0.095800]
+13 Jan 18:27    INFO valid result: 
+recall@5: 0.0364    recall@10: 0.0600    recall@20: 0.0958    recall@50: 0.1631    ndcg@5: 0.0244    ndcg@10: 0.0321    ndcg@20: 0.0412    ndcg@50: 0.0546    precision@5: 0.0076    precision@10: 0.0063    precision@20: 0.0050    precision@50: 0.0035    map@5: 0.0202    map@10: 0.0233    map@20: 0.0258    map@50: 0.0279    
+13 Jan 18:27    INFO test result: 
+recall@5: 0.0391    recall@10: 0.0635    recall@20: 0.0962    recall@50: 0.1644    ndcg@5: 0.0260    ndcg@10: 0.0340    ndcg@20: 0.0424    ndcg@50: 0.0563    precision@5: 0.0086    precision@10: 0.0070    precision@20: 0.0053    precision@50: 0.0037    map@5: 0.0211    map@10: 0.0243    map@20: 0.0265    map@50: 0.0287    
+13 Jan 18:27    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:27    INFO epoch 20 training [time: 9.56s, train loss: 19.9500]
+13 Jan 18:27    INFO epoch 20 evaluating [time: 3.10s, valid_score: 0.096400]
+13 Jan 18:27    INFO valid result: 
+recall@5: 0.0382    recall@10: 0.0616    recall@20: 0.0964    recall@50: 0.1628    ndcg@5: 0.0251    ndcg@10: 0.0326    ndcg@20: 0.0414    ndcg@50: 0.0546    precision@5: 0.0080    precision@10: 0.0065    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0205    map@10: 0.0235    map@20: 0.0259    map@50: 0.0279    
+13 Jan 18:27    INFO test result: 
+recall@5: 0.0386    recall@10: 0.0643    recall@20: 0.0974    recall@50: 0.1653    ndcg@5: 0.0256    ndcg@10: 0.0341    ndcg@20: 0.0426    ndcg@50: 0.0563    precision@5: 0.0085    precision@10: 0.0071    precision@20: 0.0054    precision@50: 0.0037    map@5: 0.0207    map@10: 0.0241    map@20: 0.0264    map@50: 0.0285    
+13 Jan 18:27    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:27    INFO epoch 21 training [time: 9.66s, train loss: 19.3378]
+13 Jan 18:28    INFO epoch 21 evaluating [time: 3.34s, valid_score: 0.095200]
+13 Jan 18:28    INFO valid result: 
+recall@5: 0.0382    recall@10: 0.0613    recall@20: 0.0952    recall@50: 0.1636    ndcg@5: 0.0256    ndcg@10: 0.0331    ndcg@20: 0.0418    ndcg@50: 0.0554    precision@5: 0.0080    precision@10: 0.0064    precision@20: 0.0050    precision@50: 0.0035    map@5: 0.0212    map@10: 0.0243    map@20: 0.0266    map@50: 0.0287    
+13 Jan 18:28    INFO test result: 
+recall@5: 0.0403    recall@10: 0.0649    recall@20: 0.0981    recall@50: 0.1680    ndcg@5: 0.0263    ndcg@10: 0.0343    ndcg@20: 0.0429    ndcg@50: 0.0570    precision@5: 0.0089    precision@10: 0.0071    precision@20: 0.0054    precision@50: 0.0037    map@5: 0.0210    map@10: 0.0242    map@20: 0.0265    map@50: 0.0287    
+13 Jan 18:28    INFO epoch 22 training [time: 9.50s, train loss: 18.5875]
+13 Jan 18:28    INFO epoch 22 evaluating [time: 3.09s, valid_score: 0.095400]
+13 Jan 18:28    INFO valid result: 
+recall@5: 0.0376    recall@10: 0.0614    recall@20: 0.0954    recall@50: 0.1637    ndcg@5: 0.0253    ndcg@10: 0.0330    ndcg@20: 0.0416    ndcg@50: 0.0552    precision@5: 0.0079    precision@10: 0.0064    precision@20: 0.0050    precision@50: 0.0035    map@5: 0.0209    map@10: 0.0241    map@20: 0.0264    map@50: 0.0285    
+13 Jan 18:28    INFO test result: 
+recall@5: 0.0393    recall@10: 0.0651    recall@20: 0.0988    recall@50: 0.1672    ndcg@5: 0.0262    ndcg@10: 0.0346    ndcg@20: 0.0433    ndcg@50: 0.0572    precision@5: 0.0087    precision@10: 0.0071    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0212    map@10: 0.0246    map@20: 0.0269    map@50: 0.0291    
+13 Jan 18:28    INFO epoch 23 training [time: 9.67s, train loss: 18.0734]
+13 Jan 18:28    INFO epoch 23 evaluating [time: 3.18s, valid_score: 0.097000]
+13 Jan 18:28    INFO valid result: 
+recall@5: 0.0388    recall@10: 0.0629    recall@20: 0.0970    recall@50: 0.1637    ndcg@5: 0.0257    ndcg@10: 0.0336    ndcg@20: 0.0423    ndcg@50: 0.0555    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0211    map@10: 0.0243    map@20: 0.0267    map@50: 0.0287    
+13 Jan 18:28    INFO test result: 
+recall@5: 0.0392    recall@10: 0.0645    recall@20: 0.0988    recall@50: 0.1670    ndcg@5: 0.0262    ndcg@10: 0.0344    ndcg@20: 0.0433    ndcg@50: 0.0571    precision@5: 0.0087    precision@10: 0.0071    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0212    map@10: 0.0245    map@20: 0.0269    map@50: 0.0291    
+13 Jan 18:28    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:28    INFO epoch 24 training [time: 9.66s, train loss: 17.5343]
+13 Jan 18:28    INFO epoch 24 evaluating [time: 3.09s, valid_score: 0.095700]
+13 Jan 18:28    INFO valid result: 
+recall@5: 0.0383    recall@10: 0.0619    recall@20: 0.0957    recall@50: 0.1653    ndcg@5: 0.0255    ndcg@10: 0.0331    ndcg@20: 0.0417    ndcg@50: 0.0556    precision@5: 0.0080    precision@10: 0.0065    precision@20: 0.0050    precision@50: 0.0035    map@5: 0.0209    map@10: 0.0240    map@20: 0.0263    map@50: 0.0285    
+13 Jan 18:28    INFO test result: 
+recall@5: 0.0407    recall@10: 0.0653    recall@20: 0.0976    recall@50: 0.1678    ndcg@5: 0.0265    ndcg@10: 0.0345    ndcg@20: 0.0428    ndcg@50: 0.0571    precision@5: 0.0090    precision@10: 0.0071    precision@20: 0.0054    precision@50: 0.0037    map@5: 0.0212    map@10: 0.0244    map@20: 0.0266    map@50: 0.0288    
+13 Jan 18:28    INFO epoch 25 training [time: 9.65s, train loss: 17.0316]
+13 Jan 18:29    INFO epoch 25 evaluating [time: 3.13s, valid_score: 0.095800]
+13 Jan 18:29    INFO valid result: 
+recall@5: 0.0383    recall@10: 0.0628    recall@20: 0.0958    recall@50: 0.1648    ndcg@5: 0.0257    ndcg@10: 0.0336    ndcg@20: 0.0420    ndcg@50: 0.0558    precision@5: 0.0081    precision@10: 0.0066    precision@20: 0.0050    precision@50: 0.0035    map@5: 0.0212    map@10: 0.0245    map@20: 0.0267    map@50: 0.0289    
+13 Jan 18:29    INFO test result: 
+recall@5: 0.0393    recall@10: 0.0642    recall@20: 0.0992    recall@50: 0.1691    ndcg@5: 0.0260    ndcg@10: 0.0341    ndcg@20: 0.0432    ndcg@50: 0.0573    precision@5: 0.0087    precision@10: 0.0071    precision@20: 0.0055    precision@50: 0.0038    map@5: 0.0209    map@10: 0.0242    map@20: 0.0266    map@50: 0.0288    
+13 Jan 18:29    INFO epoch 26 training [time: 9.51s, train loss: 16.6224]
+13 Jan 18:29    INFO epoch 26 evaluating [time: 3.06s, valid_score: 0.097400]
+13 Jan 18:29    INFO valid result: 
+recall@5: 0.0390    recall@10: 0.0627    recall@20: 0.0974    recall@50: 0.1643    ndcg@5: 0.0261    ndcg@10: 0.0338    ndcg@20: 0.0426    ndcg@50: 0.0560    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0216    map@10: 0.0247    map@20: 0.0271    map@50: 0.0292    
+13 Jan 18:29    INFO test result: 
+recall@5: 0.0399    recall@10: 0.0656    recall@20: 0.0998    recall@50: 0.1664    ndcg@5: 0.0261    ndcg@10: 0.0345    ndcg@20: 0.0433    ndcg@50: 0.0568    precision@5: 0.0088    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0209    map@10: 0.0243    map@20: 0.0266    map@50: 0.0287    
+13 Jan 18:29    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:29    INFO epoch 27 training [time: 9.59s, train loss: 16.1981]
+13 Jan 18:29    INFO epoch 27 evaluating [time: 3.15s, valid_score: 0.096900]
+13 Jan 18:29    INFO valid result: 
+recall@5: 0.0392    recall@10: 0.0625    recall@20: 0.0969    recall@50: 0.1653    ndcg@5: 0.0260    ndcg@10: 0.0336    ndcg@20: 0.0423    ndcg@50: 0.0559    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0214    map@10: 0.0244    map@20: 0.0268    map@50: 0.0289    
+13 Jan 18:29    INFO test result: 
+recall@5: 0.0404    recall@10: 0.0653    recall@20: 0.0988    recall@50: 0.1666    ndcg@5: 0.0266    ndcg@10: 0.0347    ndcg@20: 0.0433    ndcg@50: 0.0571    precision@5: 0.0089    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0213    map@10: 0.0246    map@20: 0.0269    map@50: 0.0291    
+13 Jan 18:29    INFO epoch 28 training [time: 9.69s, train loss: 15.8073]
+13 Jan 18:29    INFO epoch 28 evaluating [time: 3.19s, valid_score: 0.097800]
+13 Jan 18:29    INFO valid result: 
+recall@5: 0.0393    recall@10: 0.0631    recall@20: 0.0978    recall@50: 0.1650    ndcg@5: 0.0262    ndcg@10: 0.0339    ndcg@20: 0.0427    ndcg@50: 0.0562    precision@5: 0.0083    precision@10: 0.0066    precision@20: 0.0052    precision@50: 0.0035    map@5: 0.0216    map@10: 0.0247    map@20: 0.0271    map@50: 0.0292    
+13 Jan 18:29    INFO test result: 
+recall@5: 0.0402    recall@10: 0.0649    recall@20: 0.0996    recall@50: 0.1672    ndcg@5: 0.0264    ndcg@10: 0.0345    ndcg@20: 0.0434    ndcg@50: 0.0571    precision@5: 0.0089    precision@10: 0.0071    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0211    map@10: 0.0244    map@20: 0.0268    map@50: 0.0290    
+13 Jan 18:29    INFO ██ RFGUME--Best validation results updated!!!
+13 Jan 18:30    INFO epoch 29 training [time: 9.54s, train loss: 15.4704]
+13 Jan 18:30    INFO epoch 29 evaluating [time: 3.14s, valid_score: 0.096400]
+13 Jan 18:30    INFO valid result: 
+recall@5: 0.0384    recall@10: 0.0625    recall@20: 0.0964    recall@50: 0.1652    ndcg@5: 0.0258    ndcg@10: 0.0336    ndcg@20: 0.0422    ndcg@50: 0.0560    precision@5: 0.0081    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0213    map@10: 0.0245    map@20: 0.0268    map@50: 0.0290    
+13 Jan 18:30    INFO test result: 
+recall@5: 0.0405    recall@10: 0.0662    recall@20: 0.0992    recall@50: 0.1685    ndcg@5: 0.0268    ndcg@10: 0.0351    ndcg@20: 0.0437    ndcg@50: 0.0577    precision@5: 0.0090    precision@10: 0.0073    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0215    map@10: 0.0249    map@20: 0.0272    map@50: 0.0294    
+13 Jan 18:30    INFO epoch 30 training [time: 9.17s, train loss: 15.2006]
+13 Jan 18:30    INFO epoch 30 evaluating [time: 3.32s, valid_score: 0.097100]
+13 Jan 18:30    INFO valid result: 
+recall@5: 0.0393    recall@10: 0.0619    recall@20: 0.0971    recall@50: 0.1653    ndcg@5: 0.0261    ndcg@10: 0.0334    ndcg@20: 0.0423    ndcg@50: 0.0560    precision@5: 0.0083    precision@10: 0.0065    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0214    map@10: 0.0244    map@20: 0.0268    map@50: 0.0289    
+13 Jan 18:30    INFO test result: 
+recall@5: 0.0405    recall@10: 0.0661    recall@20: 0.1005    recall@50: 0.1680    ndcg@5: 0.0267    ndcg@10: 0.0351    ndcg@20: 0.0440    ndcg@50: 0.0576    precision@5: 0.0090    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0215    map@10: 0.0248    map@20: 0.0272    map@50: 0.0294    
+13 Jan 18:30    INFO epoch 31 training [time: 9.22s, train loss: 14.7688]
+13 Jan 18:30    INFO epoch 31 evaluating [time: 3.16s, valid_score: 0.095800]
+13 Jan 18:30    INFO valid result: 
+recall@5: 0.0382    recall@10: 0.0625    recall@20: 0.0958    recall@50: 0.1632    ndcg@5: 0.0255    ndcg@10: 0.0334    ndcg@20: 0.0419    ndcg@50: 0.0554    precision@5: 0.0081    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0211    map@10: 0.0242    map@20: 0.0265    map@50: 0.0286    
+13 Jan 18:30    INFO test result: 
+recall@5: 0.0403    recall@10: 0.0648    recall@20: 0.0999    recall@50: 0.1657    ndcg@5: 0.0267    ndcg@10: 0.0347    ndcg@20: 0.0437    ndcg@50: 0.0571    precision@5: 0.0089    precision@10: 0.0071    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0216    map@10: 0.0248    map@20: 0.0272    map@50: 0.0293    
+RF-GUME initialized: hidden_dim=128, n_layers=2, sampling_steps=10, warmup_epochs=5, rf_lr=0.0001, mix_ratio(train/infer)=0.1/0.2
+  User guidance: enabled=False, scale=0.2, decay=2.0
+  Cosine guidance: enabled=True, scale=0.1, decay=2.0
+  [RF Train] epoch=0, rf_loss=1.144568, cl_loss=10.389795
+  [RF Train] epoch=1, rf_loss=0.569464, cl_loss=10.333064
+  [RF Train] epoch=2, rf_loss=0.388349, cl_loss=9.855632
+  [RF Train] epoch=3, rf_loss=0.377900, cl_loss=8.878356
+  [RF Train] epoch=4, rf_loss=0.366402, cl_loss=8.498377
+  [RF Train] epoch=5, rf_loss=0.358235, cl_loss=8.163755
+  [RF Train] epoch=6, rf_loss=0.385057, cl_loss=7.660033
+  [RF Train] epoch=7, rf_loss=0.354298, cl_loss=7.666308
+  [RF Train] epoch=8, rf_loss=0.355549, cl_loss=7.575183
+  [RF Train] epoch=9, rf_loss=0.352744, cl_loss=7.535319
+  [RF Train] epoch=10, rf_loss=0.339885, cl_loss=7.733714
+  [RF Train] epoch=11, rf_loss=0.340377, cl_loss=7.742126
+  [RF Train] epoch=12, rf_loss=0.345007, cl_loss=7.826618
+  [RF Train] epoch=13, rf_loss=0.342430, cl_loss=7.854923
+  [RF Train] epoch=14, rf_loss=0.342219, cl_loss=7.879609
+  [RF Train] epoch=15, rf_loss=0.341205, cl_loss=7.845786
+  [RF Train] epoch=16, rf_loss=0.339225, cl_loss=7.916346
+  [RF Train] epoch=17, rf_loss=0.342949, cl_loss=7.810438
+  [RF Train] epoch=18, rf_loss=0.346265, cl_loss=7.720706
+  [RF Train] epoch=19, rf_loss=0.336493, cl_loss=7.827051
+  [RF Train] epoch=20, rf_loss=0.344357, cl_loss=7.700049
+  [RF Train] epoch=21, rf_loss=0.343415, cl_loss=7.637298
+  [RF Train] epoch=22, rf_loss=0.347080, cl_loss=7.618005
+  [RF Train] epoch=23, rf_loss=0.346202, cl_loss=7.540879
+  [RF Train] epoch=24, rf_loss=0.341822, cl_loss=7.514199
+  [RF Train] epoch=25, rf_loss=0.348314, cl_loss=7.447124
+  [RF Train] epoch=26, rf_loss=0.355106, cl_loss=7.389904
+  [RF Train] epoch=27, rf_loss=0.352561, cl_loss=7.353262
+  [RF Train] epoch=28, rf_loss=0.347146, cl_loss=7.439631
+  [RF Train] epoch=29, rf_loss=0.344632, cl_loss=7.338342
+  [RF Train] epoch=30, rf_loss=0.353092, cl_loss=7.266118
+  [RF Train] epoch=31, rf_loss=0.343921, cl_loss=7.306596
+  [RF Train] epoch=32, rf_loss=0.345379, cl_loss=7.303907
+  [RF Train] epoch=33, rf_loss=0.345474, cl_loss=7.214375
+  [RF Train] epoch=34, rf_loss=0.346760, cl_loss=7.201271
+  [RF Train] epoch=35, rf_loss=0.351518, cl_loss=7.150265
+  [RF Train] epoch=36, rf_loss=0.344647, cl_loss=7.174983
+  [RF Train] epoch=37, rf_loss=0.342760, cl_loss=7.200895
+  [RF Train] epoch=38, rf_loss=0.345277, cl_loss=7.202471
+  [RF Train] epoch=39, rf_loss=0.352445, cl_loss=7.071832
+  [RF Train] epoch=40, rf_loss=0.347270, cl_loss=7.093913
+  [RF Train] epoch=41, rf_loss=0.355219, cl_loss=7.071383
+  [RF Train] epoch=42, rf_loss=0.355349, cl_loss=7.038035
+  [RF Train] epoch=43, rf_loss=0.348946, cl_loss=7.111320
+  [RF Train] epoch=44, rf_loss=0.355092, cl_loss=7.041037
+  [RF Train] epoch=45, rf_loss=0.346854, cl_loss=7.056437
+  [RF Train] epoch=46, rf_loss=0.355328, cl_loss=7.033135
+  [RF Train] epoch=47, rf_loss=0.355832, cl_loss=7.011873
+  [RF Train] epoch=48, rf_loss=0.355506, cl_loss=7.017469
+  [RF Train] epoch=49, rf_loss=0.360397, cl_loss=6.976948
+  [RF Train] epoch=50, rf_loss=0.364558, cl_loss=6.916929
+RF-GUME initialized: hidden_dim=128, n_layers=2, sampling_steps=10, warmup_epochs=5, rf_lr=0.0001, mix_ratio(train/infer)=0.1/0.2
+  User guidance: enabled=False, scale=0.2, decay=2.0
+  Cosine guidance: enabled=True, scale=0.1, decay=2.0
+  [RF Train] epoch=0, rf_loss=1.144568, cl_loss=10.389795
+  [RF Train] epoch=1, rf_loss=0.569393, cl_loss=10.326504
+  [RF Train] epoch=2, rf_loss=0.429395, cl_loss=9.401104
+  [RF Train] epoch=3, rf_loss=0.456206, cl_loss=8.158355
+  [RF Train] epoch=4, rf_loss=0.447264, cl_loss=7.698549
+  [RF Train] epoch=5, rf_loss=0.440897, cl_loss=7.201250
+  [RF Train] epoch=6, rf_loss=0.429306, cl_loss=7.071432
+  [RF Train] epoch=7, rf_loss=0.411020, cl_loss=7.071142
+  [RF Train] epoch=8, rf_loss=0.405112, cl_loss=7.092120
+  [RF Train] epoch=9, rf_loss=0.401295, cl_loss=7.228549
+  [RF Train] epoch=10, rf_loss=0.388587, cl_loss=7.374955
+  [RF Train] epoch=11, rf_loss=0.377509, cl_loss=7.572669
+  [RF Train] epoch=12, rf_loss=0.370155, cl_loss=7.734113
+  [RF Train] epoch=13, rf_loss=0.373973, cl_loss=7.627626
+  [RF Train] epoch=14, rf_loss=0.375981, cl_loss=7.682013
+  [RF Train] epoch=15, rf_loss=0.364532, cl_loss=7.650718
+  [RF Train] epoch=16, rf_loss=0.361820, cl_loss=7.689718
+  [RF Train] epoch=17, rf_loss=0.365321, cl_loss=7.559475
+  [RF Train] epoch=18, rf_loss=0.366628, cl_loss=7.491453
+  [RF Train] epoch=19, rf_loss=0.364161, cl_loss=7.473212
+  [RF Train] epoch=20, rf_loss=0.372098, cl_loss=7.536345
+  [RF Train] epoch=21, rf_loss=0.362960, cl_loss=7.464666
+  [RF Train] epoch=22, rf_loss=0.368023, cl_loss=7.410808
+  [RF Train] epoch=23, rf_loss=0.366817, cl_loss=7.365173
+  [RF Train] epoch=24, rf_loss=0.365930, cl_loss=7.323591
+  [RF Train] epoch=25, rf_loss=0.360154, cl_loss=7.335805
+  [RF Train] epoch=26, rf_loss=0.354203, cl_loss=7.395745
+  [RF Train] epoch=27, rf_loss=0.364958, cl_loss=7.213914
+  [RF Train] epoch=28, rf_loss=0.359442, cl_loss=7.216979
+  [RF Train] epoch=29, rf_loss=0.353669, cl_loss=7.232061
+  [RF Train] epoch=30, rf_loss=0.367160, cl_loss=7.164451
+  [RF Train] epoch=31, rf_loss=0.362929, cl_loss=7.149581
+  [RF Train] epoch=32, rf_loss=0.356854, cl_loss=7.127070
+  [RF Train] epoch=33, rf_loss=0.361640, cl_loss=7.076210
+  [RF Train] epoch=34, rf_loss=0.353317, cl_loss=7.148262
+  [RF Train] epoch=35, rf_loss=0.354650, cl_loss=7.098083
+  [RF Train] epoch=36, rf_loss=0.351534, cl_loss=7.089243
+  [RF Train] epoch=37, rf_loss=0.353406, cl_loss=7.069853
+  [RF Train] epoch=38, rf_loss=0.361112, cl_loss=7.020829
+  [RF Train] epoch=39, rf_loss=0.353101, cl_loss=7.071571
+  [RF Train] epoch=40, rf_loss=0.363657, cl_loss=6.993981
+  [RF Train] epoch=41, rf_loss=0.361691, cl_loss=6.980303
+  [RF Train] epoch=42, rf_loss=0.361555, cl_loss=6.971491
+  [RF Train] epoch=43, rf_loss=0.360025, cl_loss=6.957775
+  [RF Train] epoch=44, rf_loss=0.369696, cl_loss=6.928918
+  [RF Train] epoch=45, rf_loss=0.360563, cl_loss=6.938508
+RF-GUME initialized: hidden_dim=128, n_layers=2, sampling_steps=10, warmup_epochs=5, rf_lr=0.0001, mix_ratio(train/infer)=0.1/0.2
+  User guidance: enabled=False, scale=0.2, decay=2.0
+  Cosine guidance: enabled=True, scale=0.1, decay=2.0
+  [RF Train] epoch=0, rf_loss=1.144568, cl_loss=10.389795
+  [RF Train] epoch=1, rf_loss=0.569426, cl_loss=10.321173
+  [RF Train] epoch=2, rf_loss=0.520071, cl_loss=8.755387
+  [RF Train] epoch=3, rf_loss=0.520796, cl_loss=7.734947
+  [RF Train] epoch=4, rf_loss=0.527083, cl_loss=7.130500
+  [RF Train] epoch=5, rf_loss=0.482600, cl_loss=6.876468
+  [RF Train] epoch=6, rf_loss=0.443239, cl_loss=6.969189
+  [RF Train] epoch=7, rf_loss=0.452957, cl_loss=6.867301
+  [RF Train] epoch=8, rf_loss=0.422094, cl_loss=7.092252
+  [RF Train] epoch=9, rf_loss=0.426452, cl_loss=7.196145
+  [RF Train] epoch=10, rf_loss=0.416440, cl_loss=7.394932
+  [RF Train] epoch=11, rf_loss=0.415030, cl_loss=7.449677
+  [RF Train] epoch=12, rf_loss=0.402866, cl_loss=7.541604
+  [RF Train] epoch=13, rf_loss=0.385101, cl_loss=7.632420
+  [RF Train] epoch=14, rf_loss=0.386889, cl_loss=7.576195
+  [RF Train] epoch=15, rf_loss=0.384423, cl_loss=7.546740
+  [RF Train] epoch=16, rf_loss=0.379550, cl_loss=7.557058
+  [RF Train] epoch=17, rf_loss=0.382896, cl_loss=7.451104
+  [RF Train] epoch=18, rf_loss=0.380784, cl_loss=7.422401
+  [RF Train] epoch=19, rf_loss=0.374264, cl_loss=7.489585
+  [RF Train] epoch=20, rf_loss=0.382241, cl_loss=7.440235
+  [RF Train] epoch=21, rf_loss=0.369429, cl_loss=7.444590
+  [RF Train] epoch=22, rf_loss=0.379063, cl_loss=7.332457
+  [RF Train] epoch=23, rf_loss=0.376681, cl_loss=7.320488
+  [RF Train] epoch=24, rf_loss=0.374619, cl_loss=7.272153
+  [RF Train] epoch=25, rf_loss=0.370272, cl_loss=7.269410
+  [RF Train] epoch=26, rf_loss=0.366388, cl_loss=7.260354
+  [RF Train] epoch=27, rf_loss=0.371697, cl_loss=7.166325
+  [RF Train] epoch=28, rf_loss=0.367953, cl_loss=7.167592
+  [RF Train] epoch=29, rf_loss=0.360277, cl_loss=7.164808
+  [RF Train] epoch=30, rf_loss=0.358435, cl_loss=7.185275
+  [RF Train] epoch=31, rf_loss=0.357815, cl_loss=7.156272
+13 Jan 18:30    INFO epoch 32 training [time: 9.53s, train loss: 14.5606]
+13 Jan 18:30    INFO epoch 32 evaluating [time: 3.15s, valid_score: 0.096000]
+13 Jan 18:30    INFO valid result: 
+recall@5: 0.0392    recall@10: 0.0621    recall@20: 0.0960    recall@50: 0.1630    ndcg@5: 0.0258    ndcg@10: 0.0332    ndcg@20: 0.0418    ndcg@50: 0.0552    precision@5: 0.0083    precision@10: 0.0065    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0210    map@10: 0.0240    map@20: 0.0264    map@50: 0.0285    
+13 Jan 18:30    INFO test result: 
+recall@5: 0.0399    recall@10: 0.0662    recall@20: 0.0999    recall@50: 0.1657    ndcg@5: 0.0266    ndcg@10: 0.0352    ndcg@20: 0.0438    ndcg@50: 0.0572    precision@5: 0.0088    precision@10: 0.0073    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0215    map@10: 0.0250    map@20: 0.0273    map@50: 0.0294    
+13 Jan 18:31    INFO epoch 33 training [time: 9.55s, train loss: 14.2714]
+13 Jan 18:31    INFO epoch 33 evaluating [time: 3.12s, valid_score: 0.095800]
+13 Jan 18:31    INFO valid result: 
+recall@5: 0.0390    recall@10: 0.0619    recall@20: 0.0958    recall@50: 0.1624    ndcg@5: 0.0259    ndcg@10: 0.0333    ndcg@20: 0.0420    ndcg@50: 0.0553    precision@5: 0.0082    precision@10: 0.0065    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0213    map@10: 0.0243    map@20: 0.0266    map@50: 0.0287    
+13 Jan 18:31    INFO test result: 
+recall@5: 0.0402    recall@10: 0.0656    recall@20: 0.1008    recall@50: 0.1673    ndcg@5: 0.0268    ndcg@10: 0.0351    ndcg@20: 0.0441    ndcg@50: 0.0575    precision@5: 0.0089    precision@10: 0.0072    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0217    map@10: 0.0250    map@20: 0.0274    map@50: 0.0295    
+13 Jan 18:31    INFO epoch 34 training [time: 9.65s, train loss: 14.0654]
+13 Jan 18:31    INFO epoch 34 evaluating [time: 3.12s, valid_score: 0.097000]
+13 Jan 18:31    INFO valid result: 
+recall@5: 0.0384    recall@10: 0.0624    recall@20: 0.0970    recall@50: 0.1616    ndcg@5: 0.0255    ndcg@10: 0.0332    ndcg@20: 0.0420    ndcg@50: 0.0550    precision@5: 0.0081    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0209    map@10: 0.0240    map@20: 0.0264    map@50: 0.0284    
+13 Jan 18:31    INFO test result: 
+recall@5: 0.0397    recall@10: 0.0659    recall@20: 0.1008    recall@50: 0.1661    ndcg@5: 0.0262    ndcg@10: 0.0348    ndcg@20: 0.0438    ndcg@50: 0.0570    precision@5: 0.0088    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0210    map@10: 0.0245    map@20: 0.0269    map@50: 0.0290    
+13 Jan 18:31    INFO epoch 35 training [time: 9.68s, train loss: 13.8106]
+13 Jan 18:31    INFO epoch 35 evaluating [time: 3.17s, valid_score: 0.097800]
+13 Jan 18:31    INFO valid result: 
+recall@5: 0.0394    recall@10: 0.0635    recall@20: 0.0978    recall@50: 0.1631    ndcg@5: 0.0260    ndcg@10: 0.0337    ndcg@20: 0.0424    ndcg@50: 0.0555    precision@5: 0.0083    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0035    map@5: 0.0213    map@10: 0.0244    map@20: 0.0267    map@50: 0.0288    
+13 Jan 18:31    INFO test result: 
+recall@5: 0.0404    recall@10: 0.0659    recall@20: 0.0990    recall@50: 0.1660    ndcg@5: 0.0269    ndcg@10: 0.0352    ndcg@20: 0.0437    ndcg@50: 0.0573    precision@5: 0.0090    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0217    map@10: 0.0251    map@20: 0.0273    map@50: 0.0295    
+13 Jan 18:31    INFO epoch 36 training [time: 9.75s, train loss: 13.6622]
+13 Jan 18:32    INFO epoch 36 evaluating [time: 3.17s, valid_score: 0.096200]
+13 Jan 18:32    INFO valid result: 
+recall@5: 0.0383    recall@10: 0.0626    recall@20: 0.0962    recall@50: 0.1645    ndcg@5: 0.0257    ndcg@10: 0.0336    ndcg@20: 0.0422    ndcg@50: 0.0559    precision@5: 0.0081    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0213    map@10: 0.0245    map@20: 0.0268    map@50: 0.0289    
+13 Jan 18:32    INFO test result: 
+recall@5: 0.0405    recall@10: 0.0664    recall@20: 0.1002    recall@50: 0.1672    ndcg@5: 0.0268    ndcg@10: 0.0353    ndcg@20: 0.0440    ndcg@50: 0.0575    precision@5: 0.0089    precision@10: 0.0073    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0216    map@10: 0.0250    map@20: 0.0274    map@50: 0.0295    
+13 Jan 18:32    INFO epoch 37 training [time: 9.77s, train loss: 13.4933]
+13 Jan 18:32    INFO epoch 37 evaluating [time: 3.15s, valid_score: 0.096900]
+13 Jan 18:32    INFO valid result: 
+recall@5: 0.0392    recall@10: 0.0623    recall@20: 0.0969    recall@50: 0.1636    ndcg@5: 0.0262    ndcg@10: 0.0336    ndcg@20: 0.0424    ndcg@50: 0.0558    precision@5: 0.0083    precision@10: 0.0065    precision@20: 0.0051    precision@50: 0.0035    map@5: 0.0216    map@10: 0.0246    map@20: 0.0270    map@50: 0.0291    
+13 Jan 18:32    INFO test result: 
+recall@5: 0.0396    recall@10: 0.0653    recall@20: 0.1004    recall@50: 0.1648    ndcg@5: 0.0266    ndcg@10: 0.0349    ndcg@20: 0.0440    ndcg@50: 0.0570    precision@5: 0.0088    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0216    map@10: 0.0249    map@20: 0.0274    map@50: 0.0294    
+13 Jan 18:32    INFO epoch 38 training [time: 9.65s, train loss: 13.2740]
+13 Jan 18:32    INFO epoch 38 evaluating [time: 3.13s, valid_score: 0.095800]
+13 Jan 18:32    INFO valid result: 
+recall@5: 0.0390    recall@10: 0.0628    recall@20: 0.0958    recall@50: 0.1622    ndcg@5: 0.0260    ndcg@10: 0.0337    ndcg@20: 0.0421    ndcg@50: 0.0554    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0214    map@10: 0.0245    map@20: 0.0268    map@50: 0.0289    
+13 Jan 18:32    INFO test result: 
+recall@5: 0.0398    recall@10: 0.0655    recall@20: 0.0999    recall@50: 0.1644    ndcg@5: 0.0262    ndcg@10: 0.0346    ndcg@20: 0.0434    ndcg@50: 0.0565    precision@5: 0.0088    precision@10: 0.0072    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0210    map@10: 0.0244    map@20: 0.0267    map@50: 0.0288    
+13 Jan 18:32    INFO epoch 39 training [time: 9.75s, train loss: 13.1143]
+13 Jan 18:32    INFO epoch 39 evaluating [time: 3.30s, valid_score: 0.096800]
+13 Jan 18:32    INFO valid result: 
+recall@5: 0.0392    recall@10: 0.0627    recall@20: 0.0968    recall@50: 0.1628    ndcg@5: 0.0260    ndcg@10: 0.0336    ndcg@20: 0.0423    ndcg@50: 0.0555    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0051    precision@50: 0.0034    map@5: 0.0213    map@10: 0.0244    map@20: 0.0268    map@50: 0.0288    
+13 Jan 18:32    INFO test result: 
+recall@5: 0.0399    recall@10: 0.0667    recall@20: 0.1005    recall@50: 0.1661    ndcg@5: 0.0265    ndcg@10: 0.0353    ndcg@20: 0.0440    ndcg@50: 0.0572    precision@5: 0.0088    precision@10: 0.0074    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0215    map@10: 0.0250    map@20: 0.0273    map@50: 0.0293    
+13 Jan 18:32    INFO +++++Finished training, best eval result in epoch 28
+13 Jan 18:32    INFO best valid result: recall@5: 0.0393    recall@10: 0.0631    recall@20: 0.0978    recall@50: 0.1650    ndcg@5: 0.0262    ndcg@10: 0.0339    ndcg@20: 0.0427    ndcg@50: 0.0562    precision@5: 0.0083    precision@10: 0.0066    precision@20: 0.0052    precision@50: 0.0035    map@5: 0.0216    map@10: 0.0247    map@20: 0.0271    map@50: 0.0292    
+13 Jan 18:32    INFO test result: recall@5: 0.0402    recall@10: 0.0649    recall@20: 0.0996    recall@50: 0.1672    ndcg@5: 0.0264    ndcg@10: 0.0345    ndcg@20: 0.0434    ndcg@50: 0.0571    precision@5: 0.0089    precision@10: 0.0071    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0211    map@10: 0.0244    map@20: 0.0268    map@50: 0.0290    
+13 Jan 18:32    INFO ████Current BEST████:
+Parameters: ['seed', 'rf_loss_weight']=(999, 0.1),
+Valid: recall@5: 0.0408    recall@10: 0.0634    recall@20: 0.0988    recall@50: 0.1628    ndcg@5: 0.0268    ndcg@10: 0.0341    ndcg@20: 0.0431    ndcg@50: 0.0559    precision@5: 0.0086    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0034    map@5: 0.0219    map@10: 0.0248    map@20: 0.0272    map@50: 0.0293    ,
+Test: recall@5: 0.0415    recall@10: 0.0664    recall@20: 0.1015    recall@50: 0.1685    ndcg@5: 0.0273    ndcg@10: 0.0354    ndcg@20: 0.0445    ndcg@50: 0.0580    precision@5: 0.0091    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0038    map@5: 0.0220    map@10: 0.0252    map@20: 0.0276    map@50: 0.0298    
+
+
+
+13 Jan 18:32    INFO 
+============All Over=====================
+13 Jan 18:32    INFO Parameters: ['seed', 'rf_loss_weight']=(999, 0.1),
+ best valid: recall@5: 0.0408    recall@10: 0.0634    recall@20: 0.0988    recall@50: 0.1628    ndcg@5: 0.0268    ndcg@10: 0.0341    ndcg@20: 0.0431    ndcg@50: 0.0559    precision@5: 0.0086    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0034    map@5: 0.0219    map@10: 0.0248    map@20: 0.0272    map@50: 0.0293    ,
+ best test: recall@5: 0.0415    recall@10: 0.0664    recall@20: 0.1015    recall@50: 0.1685    ndcg@5: 0.0273    ndcg@10: 0.0354    ndcg@20: 0.0445    ndcg@50: 0.0580    precision@5: 0.0091    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0038    map@5: 0.0220    map@10: 0.0252    map@20: 0.0276    map@50: 0.0298    
+13 Jan 18:32    INFO Parameters: ['seed', 'rf_loss_weight']=(999, 0.15),
+ best valid: recall@5: 0.0389    recall@10: 0.0631    recall@20: 0.0984    recall@50: 0.1647    ndcg@5: 0.0257    ndcg@10: 0.0335    ndcg@20: 0.0425    ndcg@50: 0.0558    precision@5: 0.0082    precision@10: 0.0066    precision@20: 0.0052    precision@50: 0.0035    map@5: 0.0210    map@10: 0.0242    map@20: 0.0266    map@50: 0.0287    ,
+ best test: recall@5: 0.0404    recall@10: 0.0664    recall@20: 0.1014    recall@50: 0.1678    ndcg@5: 0.0267    ndcg@10: 0.0352    ndcg@20: 0.0443    ndcg@50: 0.0577    precision@5: 0.0089    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0037    map@5: 0.0215    map@10: 0.0249    map@20: 0.0273    map@50: 0.0294    
+13 Jan 18:32    INFO Parameters: ['seed', 'rf_loss_weight']=(999, 0.2),
+ best valid: recall@5: 0.0393    recall@10: 0.0631    recall@20: 0.0978    recall@50: 0.1650    ndcg@5: 0.0262    ndcg@10: 0.0339    ndcg@20: 0.0427    ndcg@50: 0.0562    precision@5: 0.0083    precision@10: 0.0066    precision@20: 0.0052    precision@50: 0.0035    map@5: 0.0216    map@10: 0.0247    map@20: 0.0271    map@50: 0.0292    ,
+ best test: recall@5: 0.0402    recall@10: 0.0649    recall@20: 0.0996    recall@50: 0.1672    ndcg@5: 0.0264    ndcg@10: 0.0345    ndcg@20: 0.0434    ndcg@50: 0.0571    precision@5: 0.0089    precision@10: 0.0071    precision@20: 0.0055    precision@50: 0.0037    map@5: 0.0211    map@10: 0.0244    map@20: 0.0268    map@50: 0.0290    
+13 Jan 18:32    INFO 
+
+█████████████ BEST ████████████████
+13 Jan 18:32    INFO 	Parameters: ['seed', 'rf_loss_weight']=(999, 0.1),
+Valid: recall@5: 0.0408    recall@10: 0.0634    recall@20: 0.0988    recall@50: 0.1628    ndcg@5: 0.0268    ndcg@10: 0.0341    ndcg@20: 0.0431    ndcg@50: 0.0559    precision@5: 0.0086    precision@10: 0.0067    precision@20: 0.0052    precision@50: 0.0034    map@5: 0.0219    map@10: 0.0248    map@20: 0.0272    map@50: 0.0293    ,
+Test: recall@5: 0.0415    recall@10: 0.0664    recall@20: 0.1015    recall@50: 0.1685    ndcg@5: 0.0273    ndcg@10: 0.0354    ndcg@20: 0.0445    ndcg@50: 0.0580    precision@5: 0.0091    precision@10: 0.0073    precision@20: 0.0056    precision@50: 0.0038    map@5: 0.0220    map@10: 0.0252    map@20: 0.0276    map@50: 0.0298    
+
+
+  [RF Train] epoch=32, rf_loss=0.371859, cl_loss=7.092965
+  [RF Train] epoch=33, rf_loss=0.364155, cl_loss=7.049631
+  [RF Train] epoch=34, rf_loss=0.358972, cl_loss=7.075481
+  [RF Train] epoch=35, rf_loss=0.364571, cl_loss=7.019932
+  [RF Train] epoch=36, rf_loss=0.357018, cl_loss=7.021058
+  [RF Train] epoch=37, rf_loss=0.354830, cl_loss=7.071216
+  [RF Train] epoch=38, rf_loss=0.361012, cl_loss=6.998134
+  [RF Train] epoch=39, rf_loss=0.358344, cl_loss=6.999219
+
+============================================================
+Finished at: 2026-01-13 18:32:49.768255
+Exit code: 0
