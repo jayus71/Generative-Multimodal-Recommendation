@@ -128,8 +128,7 @@ def main():
         if args.dataset == "all":
             # 运行所有数据集
             results = {}
-            # for dataset in ["baby", "sports", "clothing"]:
-            for dataset in ["clothing", "sports"]:
+            for dataset in ["baby", "sports", "clothing"]:
                 success = run_training(dataset, args.config)
                 results[dataset] = "✓ 成功" if success else "✗ 失败"
 
