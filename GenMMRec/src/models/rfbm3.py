@@ -90,10 +90,43 @@ class RFBM3(BM3):
                 full_conditions.append(full_t_feat)
 
             if len(full_conditions) > 0 and self.training:
+                # 计算用户先验（用于RF指导）
+                # Z_u: 用户特定的多模态兴趣表示
+                Z_u = torch.zeros(self.n_users, self.embedding_dim).to(all_embeddings_ori.device)
+                if v_feat_online is not None and hasattr(self, 'R'):
+                    Z_u = Z_u + user_v_feat
+                if t_feat_online is not None and hasattr(self, 'R'):
+                    Z_u = Z_u + user_t_feat
+
+                # Z_hat_u: 通用用户兴趣表示（所有用户的平均值）
+                Z_hat_u = Z_u.mean(dim=0, keepdim=True)
+
+                # 用户先验: 独特的用户兴趣
+                user_prior = Z_u - Z_hat_u  # shape: (n_users, embedding_dim)
+
+                # 计算物品先验（用于RF指导）
+                # Z_i: 物品特定的多模态特征表示
+                Z_i = torch.zeros(self.n_items, self.embedding_dim).to(all_embeddings_ori.device)
+                if v_feat_online is not None:
+                    Z_i = Z_i + v_feat_online
+                if t_feat_online is not None:
+                    Z_i = Z_i + t_feat_online
+
+                # Z_hat_i: 通用物品特征表示（所有物品的平均值）
+                Z_hat_i = Z_i.mean(dim=0, keepdim=True)
+
+                # 物品先验: 独特的物品特征
+                item_prior = Z_i - Z_hat_i  # shape: (n_items, embedding_dim)
+
+                # 合并用户和物品先验
+                full_prior = torch.cat([user_prior, item_prior], dim=0)
+
                 # RF training with full user+item embeddings
                 loss_dict = self.rf_generator.compute_loss_and_step(
                     target_embeds=all_embeddings_ori.detach(),
                     conditions=[c.detach() for c in full_conditions],
+                    user_prior=full_prior.detach(),
+                    epoch=self.rf_generator.current_epoch,
                 )
 
                 if not self._rf_logged_this_epoch:

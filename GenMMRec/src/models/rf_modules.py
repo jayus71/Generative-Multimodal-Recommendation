@@ -286,6 +286,10 @@ class RFEmbeddingGenerator(nn.Module):
         inference_mix_ratio: Inference mix ratio (default: 0.5)
         contrast_temp: Contrastive loss temperature (default: 0.2)
         contrast_weight: Contrastive loss weight (default: 1.0)
+        cl_loss_in_main: If True, cl_loss is computed in main model's calculate_loss;
+                         If False, cl_loss is computed in compute_loss_and_step (default: True)
+        n_users: Number of users (required if cl_loss_in_main=False)
+        n_items: Number of items (required if cl_loss_in_main=False)
     """
 
     def __init__(
@@ -305,6 +309,9 @@ class RFEmbeddingGenerator(nn.Module):
         inference_mix_ratio: float = 0.5,
         contrast_temp: float = 0.2,
         contrast_weight: float = 1.0,
+        cl_loss_in_main: bool = True,
+        n_users: int = 0,
+        n_items: int = 0,
     ):
         super().__init__()
 
@@ -323,6 +330,9 @@ class RFEmbeddingGenerator(nn.Module):
         self.inference_mix_ratio = inference_mix_ratio
         self.contrast_temp = contrast_temp
         self.contrast_weight = contrast_weight
+        self.cl_loss_in_main = cl_loss_in_main
+        self.n_users = n_users
+        self.n_items = n_items
 
         # Will be set when we know the condition dimension
         self.velocity_net = None
@@ -443,8 +453,8 @@ class RFEmbeddingGenerator(nn.Module):
         """
         Compute RF velocity field loss and execute optimization step.
 
-        Note: Contrastive loss (cl_loss) is now computed in the main model's
-        calculate_loss method, not here.
+        If cl_loss_in_main=False, also computes contrastive loss here (split by user/item).
+        If cl_loss_in_main=True, cl_loss is computed in the main model's calculate_loss.
 
         Args:
             target_embeds: Target embedding (RF learning target), shape (batch, embedding_dim)
@@ -453,7 +463,7 @@ class RFEmbeddingGenerator(nn.Module):
             epoch: Current epoch (for warmup control)
 
         Returns:
-            loss_dict: {"rf_loss": float}
+            loss_dict: {"rf_loss": float} or {"rf_loss": float, "cl_loss": float, "total_loss": float}
         """
         # Update epoch if provided
         if epoch is not None:
@@ -475,12 +485,40 @@ class RFEmbeddingGenerator(nn.Module):
             user_prior=user_prior.detach() if user_prior is not None else None,
         )
 
-        # RF independent backpropagation and parameter update
-        self.optimizer.zero_grad()
-        rf_loss.backward()
-        self.optimizer.step()
+        # If cl_loss_in_main=False, compute cl_loss here (split by user/item to save memory)
+        if not self.cl_loss_in_main:
+            # Generate embeddings for contrastive loss
+            generated_embeds = self.generate(conditions, n_steps=self.sampling_steps)
 
-        return {"rf_loss": rf_loss.item()}
+            # Split into users and items to avoid memory explosion
+            gen_users, gen_items = torch.split(generated_embeds, [self.n_users, self.n_items], dim=0)
+            target_users, target_items = torch.split(target_embeds.detach(), [self.n_users, self.n_items], dim=0)
+
+            # Compute cl_loss separately for users and items
+            cl_loss_users = self._infonce_loss(gen_users, target_users, self.contrast_temp)
+            cl_loss_items = self._infonce_loss(gen_items, target_items, self.contrast_temp)
+            cl_loss = cl_loss_users + cl_loss_items
+
+            # Total RF loss = velocity field loss + weighted contrastive constraint
+            total_loss = rf_loss + self.contrast_weight * cl_loss
+
+            # RF independent backpropagation and parameter update
+            self.optimizer.zero_grad()
+            total_loss.backward()
+            self.optimizer.step()
+
+            return {
+                "rf_loss": rf_loss.item(),
+                "cl_loss": cl_loss.item(),
+                "total_loss": total_loss.item(),
+            }
+        else:
+            # RF independent backpropagation and parameter update (rf_loss only)
+            self.optimizer.zero_grad()
+            rf_loss.backward()
+            self.optimizer.step()
+
+            return {"rf_loss": rf_loss.item()}
 
     def generate(
         self,
