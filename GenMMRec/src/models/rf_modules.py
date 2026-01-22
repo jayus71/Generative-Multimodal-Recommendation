@@ -78,6 +78,221 @@ def cosine_similarity_gradient(x_t: torch.Tensor, x_1: torch.Tensor) -> torch.Te
     return grad
 
 
+class PropensityScoreEstimator(nn.Module):
+    """
+    Propensity Score Estimator for causal denoising.
+
+    Estimates the probability that an interaction is clean:
+    e_{u,i} = P(T_{u,i}=1 | S_{u,i}) = sigmoid(alpha * S_{u,i} + beta)
+
+    where:
+    - T_{u,i} = 1 means clean interaction (rating >= threshold)
+    - T_{u,i} = 0 means noisy interaction (rating < threshold)
+    - S_{u,i} is the user-item similarity score
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.alpha = nn.Parameter(torch.tensor(1.0))
+        self.beta = nn.Parameter(torch.tensor(0.0))
+
+    def forward(self, similarity_scores: torch.Tensor) -> torch.Tensor:
+        """
+        Compute propensity scores.
+
+        Args:
+            similarity_scores: User-item similarity scores S_{u,i}, shape (n_interactions,)
+
+        Returns:
+            e_scores: Propensity scores e_{u,i}, shape (n_interactions,)
+        """
+        return torch.sigmoid(self.alpha * similarity_scores + self.beta)
+
+    def compute_loss(self, e_scores: torch.Tensor, treatment_labels: torch.Tensor) -> torch.Tensor:
+        """
+        Compute cross-entropy loss for propensity score training.
+
+        L_PS = -sum[T * log(e) + (1-T) * log(1-e)]
+
+        Args:
+            e_scores: Predicted propensity scores, shape (n_interactions,)
+            treatment_labels: True treatment labels T (0 or 1), shape (n_interactions,)
+
+        Returns:
+            loss: Binary cross-entropy loss
+        """
+        return F.binary_cross_entropy(e_scores, treatment_labels)
+
+
+class CausalDenoiser(nn.Module):
+    """
+    Causal Denoiser using Inverse Propensity Weighting (IPW).
+
+    Implements the causal denoising formula:
+    h_u^{(l+1)} = ReLU(Σ_{i∈N(u)} (T_{u,i}/e_{u,i}) * W^{(l)} * h_i^{(l)} + b^{(l)})
+
+    where:
+    - T_{u,i} = 1 for clean interactions (rating >= threshold), 0 otherwise
+    - e_{u,i} = P(T=1|S_{u,i}) is the propensity score
+    - T/e is the Inverse Propensity Weight (IPW)
+    """
+
+    def __init__(
+        self,
+        embedding_dim: int,
+        n_users: int,
+        n_items: int,
+        n_layers: int = 2,
+        clean_rating_threshold: float = 5.0,
+        device: torch.device = None,
+    ):
+        super().__init__()
+        self.embedding_dim = embedding_dim
+        self.n_users = n_users
+        self.n_items = n_items
+        self.n_layers = n_layers
+        self.clean_rating_threshold = clean_rating_threshold
+        self.device = device if device is not None else torch.device('cpu')
+
+        # Propensity score estimator
+        self.propensity_estimator = PropensityScoreEstimator()
+
+        # Learnable GCN weights for denoising
+        self.denoise_W = nn.ModuleList([
+            nn.Linear(embedding_dim, embedding_dim, bias=True)
+            for _ in range(n_layers)
+        ])
+        for layer in self.denoise_W:
+            nn.init.xavier_normal_(layer.weight)
+
+        # Will be initialized when load_treatment_labels is called
+        self.treatment_matrix = None
+        self.denoise_user_ids = None
+        self.denoise_item_ids = None
+        self.denoise_treatments = None
+
+    def load_treatment_labels(self, dataset):
+        """
+        Load rating-based treatment labels T_{u,i} from dataset.
+        T_{u,i} = 1 if rating >= threshold (clean), else 0 (noisy)
+
+        Args:
+            dataset: Dataset object containing df with ratings
+        """
+        import numpy as np
+        import scipy.sparse as sp
+
+        if not hasattr(dataset, 'df') or dataset.df is None:
+            self.treatment_matrix = None
+            return
+
+        inter_df = dataset.df
+        rating_field = dataset.rating_field if hasattr(dataset, 'rating_field') else None
+
+        if rating_field and rating_field in inter_df.columns:
+            ratings = inter_df[rating_field].values
+            treatments = (ratings >= self.clean_rating_threshold).astype(np.float32)
+
+            user_ids = inter_df[dataset.uid_field].values
+            item_ids = inter_df[dataset.iid_field].values
+
+            # Store as sparse CSR matrix for efficient lookup
+            self.treatment_matrix = sp.coo_matrix(
+                (treatments, (user_ids, item_ids)),
+                shape=(self.n_users, self.n_items)
+            ).tocsr()
+
+            # Store interaction indices for IPW computation
+            self.denoise_user_ids = torch.LongTensor(user_ids).to(self.device)
+            self.denoise_item_ids = torch.LongTensor(item_ids).to(self.device)
+            self.denoise_treatments = torch.FloatTensor(treatments).to(self.device)
+        else:
+            self.treatment_matrix = None
+
+    def forward(self, ego_embeddings: torch.Tensor) -> tuple:
+        """
+        IPW-weighted GCN aggregation for denoising.
+
+        Args:
+            ego_embeddings: Original ego embeddings [n_users + n_items, D]
+
+        Returns:
+            denoised_emb: Denoised embeddings [n_users + n_items, D]
+            ps_loss: Propensity score cross-entropy loss
+        """
+        if self.treatment_matrix is None:
+            return None, 0.0
+
+        u_emb, i_emb = torch.split(ego_embeddings, [self.n_users, self.n_items], dim=0)
+
+        # Step 2: Compute propensity scores
+        # S_{u,i} = cosine_similarity(u, i) for observed interactions
+        u_norm = F.normalize(u_emb, dim=1)
+        i_norm = F.normalize(i_emb, dim=1)
+
+        # Compute similarity for observed interaction pairs
+        sim_scores = (u_norm[self.denoise_user_ids] * i_norm[self.denoise_item_ids]).sum(dim=1)
+
+        # Propensity score estimation: e_{u,i} = sigmoid(alpha * S + beta)
+        e_scores = self.propensity_estimator(sim_scores)
+
+        # Propensity score loss: cross-entropy
+        ps_loss = self.propensity_estimator.compute_loss(e_scores, self.denoise_treatments)
+
+        # Step 3: IPW weights - T_{u,i} / e_{u,i}
+        # For T=0 (noisy): weight = 0 (ignored)
+        # For T=1 (clean): weight = 1/e (upweighted)
+        ipw_weights = self.denoise_treatments / (e_scores.detach() + 1e-8)
+
+        # Build weighted adjacency matrix for user-item bipartite graph
+        n_nodes = self.n_users + self.n_items
+
+        # User -> Item edges (user rows, item cols + n_users)
+        row_u2i = self.denoise_user_ids
+        col_u2i = self.denoise_item_ids + self.n_users
+
+        # Item -> User edges (item rows + n_users, user cols)
+        row_i2u = self.denoise_item_ids + self.n_users
+        col_i2u = self.denoise_user_ids
+
+        # Combine edges
+        row_indices = torch.cat([row_u2i, row_i2u])
+        col_indices = torch.cat([col_u2i, col_i2u])
+        ipw_values = torch.cat([ipw_weights, ipw_weights])
+
+        # Create sparse weighted adjacency matrix
+        indices = torch.stack([row_indices, col_indices], dim=0)
+        weighted_adj = torch.sparse_coo_tensor(
+            indices, ipw_values, size=(n_nodes, n_nodes)
+        ).coalesce()
+
+        # Degree normalization: D^{-0.5} A D^{-0.5}
+        degree = torch.sparse.sum(weighted_adj, dim=1).to_dense() + 1e-8
+        d_inv_sqrt = torch.pow(degree, -0.5)
+        d_inv_sqrt[torch.isinf(d_inv_sqrt)] = 0
+
+        # Apply weighted GCN layers with learnable W and b
+        current_emb = ego_embeddings
+        all_embeddings = [current_emb]
+
+        for l in range(self.n_layers):
+            # Message passing: A * h
+            msg = torch.sparse.mm(weighted_adj, current_emb)
+
+            # Apply symmetric normalization
+            msg = d_inv_sqrt.unsqueeze(1) * msg
+
+            # Apply learnable transformation: W * h + b, then ReLU
+            current_emb = self.denoise_W[l](msg)
+            current_emb = F.relu(current_emb)
+            all_embeddings.append(current_emb)
+
+        # Mean pooling across layers
+        denoised_emb = torch.stack(all_embeddings, dim=1).mean(dim=1)
+
+        return denoised_emb, ps_loss
+
+
 class SinusoidalPositionEmbedding(nn.Module):
     """Sinusoidal position encoding for time steps."""
 
@@ -312,6 +527,9 @@ class RFEmbeddingGenerator(nn.Module):
         cl_loss_in_main: bool = True,
         n_users: int = 0,
         n_items: int = 0,
+        # InfoNCE negative sampling parameters
+        infonce_negative_samples: int = 1024,  # Number of negative samples
+        infonce_batch_size: int = 4096,        # Batch size for chunked processing
     ):
         super().__init__()
 
@@ -333,6 +551,10 @@ class RFEmbeddingGenerator(nn.Module):
         self.cl_loss_in_main = cl_loss_in_main
         self.n_users = n_users
         self.n_items = n_items
+
+        # InfoNCE negative sampling parameters
+        self.infonce_negative_samples = infonce_negative_samples
+        self.infonce_batch_size = infonce_batch_size
 
         # Will be set when we know the condition dimension
         self.velocity_net = None
@@ -370,6 +592,7 @@ class RFEmbeddingGenerator(nn.Module):
         target_embeds: torch.Tensor,
         conditions: torch.Tensor,
         user_prior: Optional[torch.Tensor] = None,
+        fixed_noise: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
         Compute Rectified Flow loss with optional user interest prior guidance.
@@ -377,10 +600,14 @@ class RFEmbeddingGenerator(nn.Module):
         Loss = E_t [||v(X_t, t, c) - (X1 - X0)||^2]
         where X_t = t*X1 + (1-t)*X0
 
+        For 2-RF (Reflow) training, pass fixed_noise to enforce strict coupling (Z0, Z1).
+
         Args:
             target_embeds: Target embeddings (X1), shape (batch, embedding_dim)
             conditions: Concatenated condition embeddings, shape (batch, condition_dim)
             user_prior: User interest prior guidance, shape (batch, embedding_dim)
+            fixed_noise: Fixed noise for 2-RF training. If None, use random noise (1-RF).
+                         Shape (batch, embedding_dim)
 
         Returns:
             rf_loss: Rectified Flow loss
@@ -390,8 +617,11 @@ class RFEmbeddingGenerator(nn.Module):
         # X1 = target embeddings
         X1 = target_embeds
 
-        # X0 = random noise
-        X0 = torch.randn_like(X1)
+        # X0 = fixed noise (2-RF) or random noise (1-RF)
+        if fixed_noise is not None:
+            X0 = fixed_noise
+        else:
+            X0 = torch.randn_like(X1)
 
         # Sample time step t ~ Uniform[0, 1]
         t = torch.rand(batch_size, 1).to(X1.device)
@@ -443,12 +673,154 @@ class RFEmbeddingGenerator(nn.Module):
 
         return torch.mean(cl_loss)
 
+    def _infonce_loss_with_negative_sampling(
+        self,
+        view1: torch.Tensor,
+        view2: torch.Tensor,
+        temperature: float,
+        n_negatives: Optional[int] = None,
+        batch_size: Optional[int] = None,
+    ) -> torch.Tensor:
+        """
+        Compute InfoNCE loss with negative sampling and batch processing.
+        Solves memory explosion issue for large-scale data.
+
+        Memory complexity reduced from O(N^2) to O(batch_size * n_negatives).
+
+        Args:
+            view1: First view embeddings [N, D]
+            view2: Second view embeddings [N, D] (positive pairs aligned)
+            temperature: Temperature parameter
+            n_negatives: Number of negative samples per positive (default: self.infonce_negative_samples)
+            batch_size: Batch size for chunked processing (default: self.infonce_batch_size)
+
+        Returns:
+            loss: InfoNCE loss
+        """
+        n_negatives = n_negatives if n_negatives is not None else self.infonce_negative_samples
+        batch_size = batch_size if batch_size is not None else self.infonce_batch_size
+
+        N = view1.size(0)
+        device = view1.device
+
+        # Normalize embeddings
+        view1 = F.normalize(view1, dim=1)
+        view2 = F.normalize(view2, dim=1)
+
+        total_loss = 0.0
+        n_processed = 0
+
+        # Batch processing
+        for i in range(0, N, batch_size):
+            end_i = min(i + batch_size, N)
+            batch_v1 = view1[i:end_i]  # [B, D]
+            batch_v2 = view2[i:end_i]  # [B, D]
+            B = batch_v1.size(0)
+
+            # Positive scores (diagonal elements)
+            pos_score = (batch_v1 * batch_v2).sum(dim=-1) / temperature  # [B]
+
+            # Sample negative indices (from entire view2)
+            neg_indices = torch.randint(0, N, (B, n_negatives), device=device)
+
+            # Ensure negatives don't include self (replace same indices)
+            batch_indices = torch.arange(i, end_i, device=device).unsqueeze(1)
+            mask = (neg_indices == batch_indices)
+            neg_indices = torch.where(mask, (neg_indices + 1) % N, neg_indices)
+
+            # Get negative embeddings [B, n_neg, D]
+            neg_embeds = view2[neg_indices]
+
+            # Compute negative scores [B, n_neg]
+            neg_scores = torch.bmm(
+                batch_v1.unsqueeze(1),        # [B, 1, D]
+                neg_embeds.transpose(1, 2)    # [B, D, n_neg]
+            ).squeeze(1) / temperature        # [B, n_neg]
+
+            # Combine positive and negative scores
+            all_scores = torch.cat([pos_score.unsqueeze(1), neg_scores], dim=1)  # [B, 1+n_neg]
+
+            # Use log_softmax for numerical stability
+            log_probs = F.log_softmax(all_scores, dim=1)
+            batch_loss = -log_probs[:, 0]  # Take log probability of positive sample
+
+            total_loss += batch_loss.sum()
+            n_processed += B
+
+            # Clean up intermediate variables
+            del neg_embeds, neg_scores, all_scores, log_probs, batch_loss
+
+        return total_loss / n_processed
+
+    def _infonce_loss_interaction_based(
+        self,
+        rf_embeds: torch.Tensor,
+        target_embeds: torch.Tensor,
+        pos_indices: torch.Tensor,
+        temperature: float,
+        n_negatives: Optional[int] = None,
+    ) -> torch.Tensor:
+        """
+        Compute InfoNCE loss between RF-generated embeddings and target embeddings,
+        using interaction-based positive samples and randomly sampled negatives.
+
+        Args:
+            rf_embeds: RF-generated embeddings [N, D]
+            target_embeds: Target embeddings [N, D]
+            pos_indices: Indices of positive samples from interactions [batch]
+            temperature: Temperature parameter
+            n_negatives: Number of negative samples per positive (default: self.infonce_negative_samples)
+
+        Returns:
+            loss: InfoNCE loss value
+        """
+        n_negatives = n_negatives if n_negatives is not None else self.infonce_negative_samples
+
+        N = target_embeds.size(0)
+        device = rf_embeds.device
+        batch_size = pos_indices.size(0)
+
+        # Get positive pairs: (rf_embeds[pos_ids], target_embeds[pos_ids])
+        rf_pos = F.normalize(rf_embeds[pos_indices], dim=1)  # [batch, D]
+        target_pos = F.normalize(target_embeds[pos_indices], dim=1)  # [batch, D]
+
+        # Positive scores: element-wise product and sum
+        pos_score = (rf_pos * target_pos).sum(dim=-1)  # [batch]
+        pos_score = torch.exp(pos_score / temperature)
+
+        # Sample negative indices from target_embeds
+        neg_indices = torch.randint(0, N, (batch_size, n_negatives), device=device)
+
+        # Ensure negatives don't include positive indices
+        pos_indices_expanded = pos_indices.unsqueeze(1)  # [batch, 1]
+        mask = (neg_indices == pos_indices_expanded)
+        neg_indices = torch.where(mask, (neg_indices + 1) % N, neg_indices)
+
+        # Get negative embeddings from target_embeds
+        target_neg = F.normalize(target_embeds[neg_indices], dim=1)  # [batch, n_neg, D]
+
+        # Compute negative scores: [batch, n_neg]
+        neg_scores = torch.bmm(
+            rf_pos.unsqueeze(1),  # [batch, 1, D]
+            target_neg.transpose(1, 2)  # [batch, D, n_neg]
+        ).squeeze(1)  # [batch, n_neg]
+        neg_scores = torch.exp(neg_scores / temperature)
+
+        # Total score: positive + sum of negatives
+        ttl_score = pos_score + neg_scores.sum(dim=1)
+
+        # InfoNCE loss
+        cl_loss = -torch.log(pos_score / ttl_score)
+
+        return torch.mean(cl_loss)
+
     def compute_loss_and_step(
         self,
         target_embeds: torch.Tensor,
         conditions: List[torch.Tensor],
         user_prior: Optional[torch.Tensor] = None,
         epoch: Optional[int] = None,
+        fixed_noise: Optional[torch.Tensor] = None,
     ) -> Dict[str, float]:
         """
         Compute RF velocity field loss and execute optimization step.
@@ -456,11 +828,16 @@ class RFEmbeddingGenerator(nn.Module):
         If cl_loss_in_main=False, also computes contrastive loss here (split by user/item).
         If cl_loss_in_main=True, cl_loss is computed in the main model's calculate_loss.
 
+        For 2-RF (Reflow) training:
+        - Pass fixed_noise (Z0) and target_embeds (Z1) from prepare_reflow_dataset()
+
         Args:
             target_embeds: Target embedding (RF learning target), shape (batch, embedding_dim)
             conditions: List of condition embeddings (will be concatenated)
             user_prior: Optional user prior guidance, shape (batch, embedding_dim)
             epoch: Current epoch (for warmup control)
+            fixed_noise: Fixed noise for 2-RF training (from prepare_reflow_dataset).
+                         If None, use random noise (1-RF training).
 
         Returns:
             loss_dict: {"rf_loss": float} or {"rf_loss": float, "cl_loss": float, "total_loss": float}
@@ -483,6 +860,7 @@ class RFEmbeddingGenerator(nn.Module):
             target_embeds.detach(),
             conditions_cat.detach(),
             user_prior=user_prior.detach() if user_prior is not None else None,
+            fixed_noise=fixed_noise.detach() if fixed_noise is not None else None,
         )
 
         # If cl_loss_in_main=False, compute cl_loss here (split by user/item to save memory)
@@ -494,9 +872,9 @@ class RFEmbeddingGenerator(nn.Module):
             gen_users, gen_items = torch.split(generated_embeds, [self.n_users, self.n_items], dim=0)
             target_users, target_items = torch.split(target_embeds.detach(), [self.n_users, self.n_items], dim=0)
 
-            # Compute cl_loss separately for users and items
-            cl_loss_users = self._infonce_loss(gen_users, target_users, self.contrast_temp)
-            cl_loss_items = self._infonce_loss(gen_items, target_items, self.contrast_temp)
+            # Compute cl_loss separately for users and items (using negative sampling to save memory)
+            cl_loss_users = self._infonce_loss_with_negative_sampling(gen_users, target_users, self.contrast_temp)
+            cl_loss_items = self._infonce_loss_with_negative_sampling(gen_items, target_items, self.contrast_temp)
             cl_loss = cl_loss_users + cl_loss_items
 
             # Total RF loss = velocity field loss + weighted contrastive constraint
@@ -524,6 +902,7 @@ class RFEmbeddingGenerator(nn.Module):
         self,
         conditions: List[torch.Tensor],
         n_steps: Optional[int] = None,
+        start_noise: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
         Generate embeddings using ODE sampling.
@@ -531,6 +910,8 @@ class RFEmbeddingGenerator(nn.Module):
         Args:
             conditions: List of condition embeddings (will be concatenated)
             n_steps: ODE sampling steps (None to use default value)
+            start_noise: Custom starting noise. If None, use random Gaussian noise.
+                         Used by prepare_reflow_dataset() to ensure (Z0, Z1) pairing.
 
         Returns:
             generated_embeds: Generated embeddings
@@ -549,8 +930,11 @@ class RFEmbeddingGenerator(nn.Module):
         if n_steps is None:
             n_steps = self.sampling_steps
 
-        # Start from standard Gaussian noise
-        z_0 = torch.randn(batch_size, self.embedding_dim).to(device)
+        # Start from custom noise or standard Gaussian noise
+        if start_noise is not None:
+            z_0 = start_noise
+        else:
+            z_0 = torch.randn(batch_size, self.embedding_dim).to(device)
 
         # Solve ODE using Euler method
         z_t = z_0
@@ -571,6 +955,70 @@ class RFEmbeddingGenerator(nn.Module):
             self.velocity_net.train()
 
         return z_t
+
+    def prepare_reflow_dataset(
+        self,
+        conditions: List[torch.Tensor],
+        device: torch.device,
+        n_steps: Optional[int] = None,
+    ) -> tuple:
+        """
+        Generate paired dataset (Z0, Z1, conditions) for 2-RF (Reflow) training.
+
+        This method uses the current trained 1-RF model to generate outputs,
+        creating the strict coupling (Z0, Z1) required for training straighter flows.
+
+        Args:
+            conditions: List of condition embeddings (will be concatenated)
+            device: Device to generate tensors on
+            n_steps: ODE sampling steps (None to use default value)
+
+        Returns:
+            Tuple of (z0, z1, conditions_cat):
+                - z0: Random noise used as starting point, shape (batch, embedding_dim)
+                - z1: 1-RF generated output from z0, shape (batch, embedding_dim)
+                - conditions_cat: Concatenated conditions, shape (batch, condition_dim)
+
+        Usage Example:
+            ```python
+            # === Step 1: Train 1-RF ===
+            rf_gen = RFEmbeddingGenerator(embedding_dim=64, ...)
+            for epoch in range(num_epochs_1rf):
+                loss = rf_gen.compute_loss_and_step(
+                    target_embeds=target,
+                    conditions=[image_cond, text_cond],
+                )
+
+            # === Step 2: Prepare Reflow Dataset ===
+            z0, z1, cond = rf_gen.prepare_reflow_dataset(
+                [image_cond, text_cond], device
+            )
+
+            # === Step 3: Train 2-RF ===
+            for epoch in range(num_epochs_2rf):
+                loss = rf_gen.compute_loss_and_step(
+                    target_embeds=z1,       # 1-RF output as target
+                    conditions=[image_cond, text_cond],
+                    fixed_noise=z0,         # Paired noise as fixed starting point
+                )
+
+            # === Step 4: Fast inference (can use fewer steps) ===
+            output = rf_gen.generate([image_cond, text_cond], n_steps=1)
+            ```
+        """
+        # Concatenate conditions
+        conditions_cat = torch.cat(conditions, dim=-1)
+        batch_size = conditions_cat.shape[0]
+
+        # Ensure gradients are disabled during generation
+        with torch.no_grad():
+            # Z0: Random noise
+            z0 = torch.randn(batch_size, self.embedding_dim).to(device)
+
+            # Z1: 1-RF generated output from Z0
+            z1 = self.generate(conditions, n_steps=n_steps, start_noise=z0)
+
+        return z0, z1, conditions_cat
 
     def mix_embeddings(
         self,

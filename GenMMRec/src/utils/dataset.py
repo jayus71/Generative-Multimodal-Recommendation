@@ -49,9 +49,14 @@ class RecDataset(object):
 
     def load_inter_graph(self, file_name):
         inter_file = os.path.join(self.dataset_path, file_name)
+        # Check if rating field should be loaded (for denoising)
+        self.rating_field = self.config['RATING_FIELD'] if 'RATING_FIELD' in self.config else None
         cols = [self.uid_field, self.iid_field, self.splitting_label]
+        if self.rating_field:
+            cols.append(self.rating_field)
         self.df = pd.read_csv(inter_file, usecols=cols, sep=self.config['field_separator'])
-        if not self.df.columns.isin(cols).all():
+        required_cols = [self.uid_field, self.iid_field, self.splitting_label]
+        if not self.df.columns.isin(required_cols).all():
             raise ValueError('File {} lost some required columns.'.format(inter_file))
 
     def split(self):

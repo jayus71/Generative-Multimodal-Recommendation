@@ -3,13 +3,14 @@
 r"""
 RFLGMRec: RF-Enhanced LGMRec
 Integrates Rectified Flow module to enhance collaborative graph embeddings
+With optional causal denoising using Inverse Propensity Weighting (IPW)
 """
 
 import torch
 import torch.nn.functional as F
 
 from models.lgmrec import LGMRec
-from models.rf_modules import RFEmbeddingGenerator
+from models.rf_modules import RFEmbeddingGenerator, CausalDenoiser
 
 
 class RFLGMRec(LGMRec):
@@ -39,6 +40,21 @@ class RFLGMRec(LGMRec):
                 n_items=self.n_items,
             )
             self._rf_logged_this_epoch = False
+
+        # ===== Denoising Module =====
+        self.use_denoise = config["use_denoise"] if "use_denoise" in config else False
+
+        if self.use_denoise:
+            self.ps_loss_weight = config["ps_loss_weight"] if "ps_loss_weight" in config else 0.1
+            self.causal_denoiser = CausalDenoiser(
+                embedding_dim=self.embedding_dim,
+                n_users=self.n_users,
+                n_items=self.n_items,
+                n_layers=config["denoise_layers"] if "denoise_layers" in config else 2,
+                clean_rating_threshold=config["clean_rating_threshold"] if "clean_rating_threshold" in config else 5.0,
+                device=self.device,
+            )
+            self.causal_denoiser.load_treatment_labels(dataset)
 
     def set_epoch(self, epoch):
         """Set current epoch for RF generator."""
@@ -78,69 +94,69 @@ class RFLGMRec(LGMRec):
                 full_conditions.append(t_feats)
 
             if len(full_conditions) > 0 and self.training:
+                # ===== Denoising: compute denoised embeddings as RF target =====
+                ps_loss = 0.0
+                if self.use_denoise:
+                    ego_emb_for_denoise = torch.cat((self.user_embedding.weight,
+                                                     self.item_id_embedding.weight), dim=0)
+                    denoised_emb, ps_loss = self.causal_denoiser(ego_emb_for_denoise)
+                    if denoised_emb is not None:
+                        rf_target = denoised_emb.detach()
+                    else:
+                        rf_target = cge_embs_ori.detach()
+                else:
+                    rf_target = cge_embs_ori.detach()
+
                 # 计算用户先验（用于RF指导）
-                # Z_u: 用户特定的多模态兴趣表示
                 Z_u = torch.zeros(self.n_users, self.embedding_dim).to(cge_embs_ori.device)
                 if self.v_feat is not None:
                     Z_u = Z_u + v_feats[:self.n_users]
                 if self.t_feat is not None:
                     Z_u = Z_u + t_feats[:self.n_users]
 
-                # Z_hat_u: 通用用户兴趣表示（所有用户的平均值）
                 Z_hat_u = Z_u.mean(dim=0, keepdim=True)
+                user_prior = Z_u - Z_hat_u
 
-                # 用户先验: 独特的用户兴趣
-                user_prior = Z_u - Z_hat_u  # shape: (n_users, embedding_dim)
-
-                # 计算物品先验（用于RF指导）
-                # Z_i: 物品特定的多模态特征表示
                 Z_i = torch.zeros(self.n_items, self.embedding_dim).to(cge_embs_ori.device)
                 if self.v_feat is not None:
                     Z_i = Z_i + v_feats[self.n_users:]
                 if self.t_feat is not None:
                     Z_i = Z_i + t_feats[self.n_users:]
 
-                # Z_hat_i: 通用物品特征表示（所有物品的平均值）
                 Z_hat_i = Z_i.mean(dim=0, keepdim=True)
+                item_prior = Z_i - Z_hat_i
 
-                # 物品先验: 独特的物品特征
-                item_prior = Z_i - Z_hat_i  # shape: (n_items, embedding_dim)
-
-                # 合并用户和物品先验
                 full_prior = torch.cat([user_prior, item_prior], dim=0)
 
-                # RF training with full user+item CGE embeddings
+                # RF training with denoised embeddings as target
                 loss_dict = self.rf_generator.compute_loss_and_step(
-                    target_embeds=cge_embs_ori.detach(),
+                    target_embeds=rf_target,
                     conditions=[c.detach() for c in full_conditions],
                     user_prior=full_prior.detach(),
                     epoch=self.rf_generator.current_epoch,
                 )
 
                 if not self._rf_logged_this_epoch:
-                    if self.cl_loss_in_main:
-                        print(f"  [RF Train] epoch={self.rf_generator.current_epoch}, "
-                              f"rf_loss={loss_dict['rf_loss']:.6f}")
-                    else:
-                        print(f"  [RF Train] epoch={self.rf_generator.current_epoch}, "
-                              f"rf_loss={loss_dict['rf_loss']:.6f}, "
-                              f"cl_loss={loss_dict['cl_loss']:.6f}")
+                    log_msg = f"  [RF Train] epoch={self.rf_generator.current_epoch}, rf_loss={loss_dict['rf_loss']:.6f}"
+                    if self.use_denoise:
+                        log_msg += f", ps_loss={ps_loss:.6f}"
+                    if not self.cl_loss_in_main:
+                        log_msg += f", cl_loss={loss_dict['cl_loss']:.6f}"
+                    print(log_msg)
                     self._rf_logged_this_epoch = True
 
-                # Generate RF embeddings for full user+item space
                 rf_embeds = self.rf_generator.generate(full_conditions)
 
-                # Mix embeddings
                 cge_embs = self.rf_generator.mix_embeddings(
                     cge_embs_ori, rf_embeds.detach(), training=True
                 )
 
-                # Store rf_outputs for cl_loss in calculate_loss (only when cl_loss_in_main=True)
-                if self.cl_loss_in_main:
-                    rf_outputs = {
-                        "rf_embeds": rf_embeds,
-                        "target_embeds": cge_embs_ori,
-                    }
+                # Always store rf_outputs (cl_loss_in_main only controls loss computation)
+                rf_outputs = {
+                    "rf_embeds": rf_embeds,
+                    "target_embeds": rf_target,
+                    "ps_loss": ps_loss,
+                }
 
             elif len(full_conditions) > 0 and not self.training:
                 # Inference mode
@@ -196,6 +212,10 @@ class RFLGMRec(LGMRec):
 
         loss = batch_bpr_loss + self.cl_weight * batch_hcl_loss + self.reg_weight * batch_reg_loss
 
+        # Add propensity score loss if denoising is enabled
+        if self.use_denoise and rf_outputs is not None and "ps_loss" in rf_outputs:
+            loss = loss + self.ps_loss_weight * rf_outputs["ps_loss"]
+
         # RF contrastive loss (cl_loss) - only compute here when cl_loss_in_main=True
         if self.use_rf and self.cl_loss_in_main and rf_outputs is not None:
             rf_embeds = rf_outputs["rf_embeds"]
@@ -204,8 +224,12 @@ class RFLGMRec(LGMRec):
             rf_users, rf_items = torch.split(rf_embeds, [self.n_users, self.n_items], dim=0)
             target_users, target_items = torch.split(target_embeds, [self.n_users, self.n_items], dim=0)
 
-            rf_cl_loss = self.rf_generator._infonce_loss(rf_items[pos_items], target_items[pos_items], 0.2) + \
-                         self.rf_generator._infonce_loss(rf_users[users], target_users[users], 0.2)
+            # Use interaction-based InfoNCE
+            rf_cl_loss = self.rf_generator._infonce_loss_interaction_based(
+                rf_items, target_items, pos_items, 0.2
+            ) + self.rf_generator._infonce_loss_interaction_based(
+                rf_users, target_users, users, 0.2
+            )
 
             loss = loss + self.rf_generator.contrast_weight * rf_cl_loss
 
