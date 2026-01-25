@@ -53,6 +53,8 @@ def get_trainer(model_name=None):
         return getattr(importlib.import_module('common.trainer'), 'DiffMMTrainer')
     if model_name == 'GenRecV1':
         return getattr(importlib.import_module('common.trainer'), 'GenRecV1Trainer')
+    if model_name == 'MVDiff':
+        return getattr(importlib.import_module('common.trainer'), 'MVDiffTrainer')
     return getattr(importlib.import_module('common.trainer'), 'Trainer')
 
 
