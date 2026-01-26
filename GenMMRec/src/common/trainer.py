@@ -818,3 +818,385 @@ class GenRecV1Trainer(DiffMMTrainer):
         self.logger.info(f"Diffusion Loss: {epDiLoss_image/steps:.4f}")
         return rec_loss, loss_batches
 
+class MVDiffTrainer(Trainer):
+    """Trainer for MVDiff model with multimodal feature diffusion and sparsity diffusion"""
+    def __init__(self, config, model, mg=False):
+        super(MVDiffTrainer, self).__init__(config, model, mg)
+        
+        # Denoise optimizers for user-item interactions
+        self.denoise_opt_image = optim.Adam(self.model.denoise_model_image.parameters(), lr=config['learning_rate'], weight_decay=0)
+        self.denoise_opt_text = optim.Adam(self.model.denoise_model_text.parameters(), lr=config['learning_rate'], weight_decay=0)
+        if self.model.audio_modality:
+            self.denoise_opt_audio = optim.Adam(self.model.denoise_model_audio.parameters(), lr=config['learning_rate'], weight_decay=0)
+        
+        # Multimodal feature denoise optimizers
+        if hasattr(self.model, 'image_modal_denoise_model'):
+            self.image_modal_denoise_optimizer = optim.Adam(self.model.image_modal_denoise_model.parameters(), lr=config['learning_rate'], weight_decay=0)
+        if hasattr(self.model, 'text_modal_denoise_model'):
+            self.text_modal_denoise_optimizer = optim.Adam(self.model.text_modal_denoise_model.parameters(), lr=config['learning_rate'], weight_decay=0)
+        if self.model.audio_modality and hasattr(self.model, 'audio_modal_denoise_model'):
+            self.audio_modal_denoise_optimizer = optim.Adam(self.model.audio_modal_denoise_model.parameters(), lr=config['learning_rate'], weight_decay=0)
+        
+        self.diffusion_loader = None
+        self.multimodal_feature_loader = None
+        self.item_num = model.n_items
+        self.user_num = model.n_users
+    
+    def _build_diffusion_loader(self, train_data):
+        """Build diffusion loader for user-item interactions"""
+        if self.diffusion_loader is not None:
+            return
+        
+        df = train_data.dataset.df
+        uid_field = self.config['USER_ID_FIELD']
+        iid_field = self.config['ITEM_ID_FIELD']
+        
+        user_interactions = df.groupby(uid_field)[iid_field].apply(list).to_dict()
+        
+        class DiffusionDataset(torch.utils.data.Dataset):
+            def __init__(self, user_interactions, user_num, item_num):
+                self.user_interactions = user_interactions
+                self.user_num = user_num
+                self.item_num = item_num
+                self.users = list(range(user_num))
+            
+            def __len__(self):
+                return self.user_num
+            
+            def __getitem__(self, idx):
+                user_id = self.users[idx]
+                items = self.user_interactions.get(user_id, [])
+                vector = torch.zeros(self.item_num)
+                if len(items) > 0:
+                    vector[items] = 1.0
+                return vector, torch.tensor(user_id).float()
+        
+        dataset = DiffusionDataset(user_interactions, self.user_num, self.item_num)
+        self.diffusion_loader = DataLoader(dataset, batch_size=self.config['train_batch_size'], shuffle=True, num_workers=0)
+    
+    def _build_multimodal_feature_loader(self):
+        """Build loader for multimodal features"""
+        if self.multimodal_feature_loader is not None:
+            return
+        
+        class MultimodalFeatureDataset(torch.utils.data.Dataset):
+            def __init__(self, image_feats, text_feats, audio_feats):
+                self.image_feats = image_feats
+                self.text_feats = text_feats
+                self.audio_feats = audio_feats
+            
+            def __len__(self):
+                return self.image_feats.shape[0] if self.image_feats is not None else self.text_feats.shape[0]
+            
+            def __getitem__(self, index):
+                image_modal_feature = self.image_feats[index] if self.image_feats is not None else None
+                text_modal_feature = self.text_feats[index] if self.text_feats is not None else None
+                audio_modal_feature = self.audio_feats[index] if self.audio_feats is not None else None
+                
+                if audio_modal_feature is not None:
+                    return (image_modal_feature, text_modal_feature, audio_modal_feature)
+                else:
+                    return (image_modal_feature, text_modal_feature)
+        
+        dataset = MultimodalFeatureDataset(
+            self.model.image_embedding,
+            self.model.text_embedding,
+            self.model.audio_embedding if self.model.audio_modality else None
+        )
+        self.multimodal_feature_loader = DataLoader(dataset, batch_size=self.config['train_batch_size'], shuffle=False, num_workers=0)
+    
+    def normalizeAdj(self, mat):
+        degree = np.array(mat.sum(axis=-1))
+        dInvSqrt = np.reshape(np.power(degree, -0.5), [-1])
+        dInvSqrt[np.isinf(dInvSqrt)] = 0.0
+        dInvSqrtMat = sp.diags(dInvSqrt)
+        return mat.dot(dInvSqrtMat).transpose().dot(dInvSqrtMat).tocoo()
+    
+    def buildUIMatrix(self, u_list, i_list, edge_list):
+        mat = coo_matrix((edge_list, (u_list, i_list)), shape=(self.user_num, self.item_num), dtype=np.float32)
+        a = sp.csr_matrix((self.user_num, self.user_num))
+        b = sp.csr_matrix((self.item_num, self.item_num))
+        mat = sp.vstack([sp.hstack([a, mat]), sp.hstack([mat.transpose(), b])])
+        mat = (mat != 0) * 1.0
+        mat = (mat + sp.eye(mat.shape[0])) * 1.0
+        mat = self.normalizeAdj(mat)
+        
+        idxs = torch.from_numpy(np.vstack([mat.row, mat.col]).astype(np.int64))
+        vals = torch.from_numpy(mat.data.astype(np.float32))
+        shape = torch.Size(mat.shape)
+        return torch.sparse.FloatTensor(idxs, vals, shape).to(self.device)
+    
+    def buildItem2ItemMatrix(self, feature):
+        """Build Item-Item matrix from features"""
+        feature_norm = feature.div(torch.norm(feature, p=2, dim=-1, keepdim=True) + 1e-8)
+        sim_adj = torch.mm(feature_norm, feature_norm.transpose(1, 0))
+        sim_adj_sparse = build_knn_normalized_graph(sim_adj, topk=self.model.knn_k, is_sparse=True, norm_type='sym')
+        return sim_adj, sim_adj_sparse
+    
+    def _train_epoch(self, train_data, epoch_idx, loss_func=None):
+        """Train one epoch for MVDiff"""
+        # Build loaders
+        self._build_diffusion_loader(train_data)
+        self._build_multimodal_feature_loader()
+        
+        self.model.train()
+        epDiLoss_image_modal, epDiLoss_text_modal = 0, 0
+        if self.model.audio_modality:
+            epDiLoss_audio_modal = 0
+        
+        # 1. Multimodal Feature Diffusion Training
+        for i, data in enumerate(self.multimodal_feature_loader):
+            if len(data) > 2:
+                image_batch, text_batch, audio_batch = data
+                image_batch, text_batch, audio_batch = image_batch.to(self.device), text_batch.to(self.device), audio_batch.to(self.device)
+            else:
+                image_batch, text_batch = data
+                audio_batch = None
+                image_batch, text_batch = image_batch.to(self.device), text_batch.to(self.device)
+            
+            self.image_modal_denoise_optimizer.zero_grad()
+            self.text_modal_denoise_optimizer.zero_grad()
+            if self.model.audio_modality:
+                self.audio_modal_denoise_optimizer.zero_grad()
+            
+            image_modal_difussion_loss = self.model.diffusion_model.training_multimodal_feature_diffusion_losses(
+                model=self.model.image_modal_denoise_model,
+                x_start_image=image_batch,
+                x_start_text=text_batch,
+                x_start_audio=audio_batch,
+                modal_flag='image'
+            )
+            
+            text_modal_diffusion_loss = self.model.diffusion_model.training_multimodal_feature_diffusion_losses(
+                model=self.model.text_modal_denoise_model,
+                x_start_image=image_batch,
+                x_start_text=text_batch,
+                x_start_audio=audio_batch,
+                modal_flag='text'
+            )
+            
+            image_modal_difussion_loss = image_modal_difussion_loss.mean()
+            text_modal_diffusion_loss = text_modal_diffusion_loss.mean()
+            
+            epDiLoss_image_modal += image_modal_difussion_loss.item()
+            epDiLoss_text_modal += text_modal_diffusion_loss.item()
+            
+            if self.model.audio_modality:
+                audio_modal_diffusion_loss = self.model.diffusion_model.training_multimodal_feature_diffusion_losses(
+                    model=self.model.audio_modal_denoise_model,
+                    x_start_image=image_batch,
+                    x_start_text=text_batch,
+                    x_start_audio=audio_batch,
+                    modal_flag='audio'
+                )
+                audio_modal_diffusion_loss = audio_modal_diffusion_loss.mean()
+                epDiLoss_audio_modal += audio_modal_diffusion_loss.item()
+                loss = image_modal_difussion_loss + text_modal_diffusion_loss + audio_modal_diffusion_loss
+            else:
+                loss = image_modal_difussion_loss + text_modal_diffusion_loss
+            
+            loss.backward()
+            self.image_modal_denoise_optimizer.step()
+            self.text_modal_denoise_optimizer.step()
+            if self.model.audio_modality:
+                self.audio_modal_denoise_optimizer.step()
+        
+        # 2. Generate Multimodal Diffusion Features and Item-Item Graphs
+        with torch.no_grad():
+            image_modal_diffusion_representation_list = []
+            text_modal_diffusion_representation_list = []
+            if self.model.audio_modality:
+                audio_modal_diffusion_representation_list = []
+            
+            for _, data in enumerate(self.multimodal_feature_loader):
+                if len(data) > 2:
+                    image_batch, text_batch, audio_batch = data
+                    image_batch, text_batch, audio_batch = image_batch.to(self.device), text_batch.to(self.device), audio_batch.to(self.device)
+                else:
+                    image_batch, text_batch = data
+                    audio_batch = None
+                    image_batch, text_batch = image_batch.to(self.device), text_batch.to(self.device)
+                
+                denoised_image_batch = self.model.diffusion_model.p_sample(
+                    self.model.image_modal_denoise_model, image_batch, text_batch, audio_batch,
+                    self.model.sampling_steps, self.model.sampling_noise, modal_flag='image')
+                denoised_text_batch = self.model.diffusion_model.p_sample(
+                    self.model.text_modal_denoise_model, image_batch, text_batch, audio_batch,
+                    self.model.sampling_steps, self.model.sampling_noise, modal_flag='text')
+                
+                image_modal_diffusion_representation_list.append(denoised_image_batch)
+                text_modal_diffusion_representation_list.append(denoised_text_batch)
+                
+                if self.model.audio_modality:
+                    denoised_audio_batch = self.model.diffusion_model.p_sample(
+                        self.model.audio_modal_denoise_model, image_batch, text_batch, audio_batch,
+                        self.model.sampling_steps, self.model.sampling_noise, modal_flag='audio')
+                    audio_modal_diffusion_representation_list.append(denoised_audio_batch)
+            
+            image_modal_diffusion_representation = torch.concat(image_modal_diffusion_representation_list)
+            text_modal_diffusion_representation = torch.concat(text_modal_diffusion_representation_list)
+            
+            image_modal_diffusion_representation += self.model.image_embedding
+            text_modal_diffusion_representation += self.model.text_embedding
+            
+            self.model.image_II_matrix_dense, self.model.image_II_matrix = self.buildItem2ItemMatrix(image_modal_diffusion_representation)
+            self.model.text_II_matrix_dense, self.model.text_II_matrix = self.buildItem2ItemMatrix(text_modal_diffusion_representation)
+            
+            if self.model.audio_modality:
+                audio_modal_diffusion_representation = torch.concat(audio_modal_diffusion_representation_list)
+                audio_modal_diffusion_representation += self.model.audio_embedding
+                self.model.audio_II_matrix_dense, self.model.audio_II_matrix = self.buildItem2ItemMatrix(audio_modal_diffusion_representation)
+                self.model.modal_fusion_II_matrix = self.model.image_II_matrix + self.model.text_II_matrix + self.model.audio_II_matrix
+            else:
+                self.model.modal_fusion_II_matrix = self.model.image_II_matrix + self.model.text_II_matrix
+            
+            # Add original II matrices
+            image_II_origin_dense, image_II_origin = self.buildItem2ItemMatrix(self.model.image_embedding)
+            text_II_origin_dense, text_II_origin = self.buildItem2ItemMatrix(self.model.text_embedding)
+            self.model.image_II_matrix += image_II_origin
+            self.model.text_II_matrix += text_II_origin
+            
+            if self.model.audio_modality:
+                audio_II_origin_dense, audio_II_origin = self.buildItem2ItemMatrix(self.model.audio_embedding)
+                self.model.audio_II_matrix += audio_II_origin
+        
+        # 3. User-Item Interaction Diffusion Training
+        epDiLoss_image, epDiLoss_text = 0, 0
+        if self.model.audio_modality:
+            epDiLoss_audio = 0
+        
+        steps = len(self.diffusion_loader)
+        iEmbeds = self.model.getItemEmbeds().detach()
+        image_feats = self.model.getImageFeats().detach()
+        text_feats = self.model.getTextFeats().detach()
+        if self.model.audio_modality:
+            audio_feats = self.model.getAudioFeats().detach()
+        
+        for i, batch in enumerate(self.diffusion_loader):
+            batch_item, batch_index = batch
+            batch_item, batch_index = batch_item.to(self.device), batch_index.to(self.device)
+            
+            self.denoise_opt_image.zero_grad()
+            self.denoise_opt_text.zero_grad()
+            if self.model.audio_modality:
+                self.denoise_opt_audio.zero_grad()
+            
+            diff_loss_image, gc_loss_image, contra_loss_image = self.model.sparity_diffusion_model.training_losses(
+                self.model.denoise_model_image, batch_item, iEmbeds, batch_index, image_feats)
+            
+            diff_loss_text, gc_loss_text, contra_loss_text = self.model.sparity_diffusion_model.training_losses(
+                self.model.denoise_model_text, batch_item, iEmbeds, batch_index, text_feats)
+            
+            loss_image = diff_loss_image.mean() + gc_loss_image.mean() * self.model.e_loss + contra_loss_image.mean() * self.model.ssl_reg
+            loss_text = diff_loss_text.mean() + gc_loss_text.mean() * self.model.e_loss + contra_loss_text.mean() * self.model.ssl_reg
+            
+            epDiLoss_image += loss_image.item()
+            epDiLoss_text += loss_text.item()
+            
+            if self.model.audio_modality:
+                diff_loss_audio, gc_loss_audio, contra_loss_audio = self.model.sparity_diffusion_model.training_losses(
+                    self.model.denoise_model_audio, batch_item, iEmbeds, batch_index, audio_feats)
+                loss_audio = diff_loss_audio.mean() + gc_loss_audio.mean() * self.model.e_loss + contra_loss_audio.mean() * self.model.ssl_reg
+                epDiLoss_audio += loss_audio.item()
+                loss = loss_image + loss_text + loss_audio
+            else:
+                loss = loss_image + loss_text
+            
+            loss.backward()
+            self.denoise_opt_image.step()
+            self.denoise_opt_text.step()
+            if self.model.audio_modality:
+                self.denoise_opt_audio.step()
+        
+        # 4. Rebuild User-Item Matrices
+        with torch.no_grad():
+            u_list_image, i_list_image, edge_list_image = [], [], []
+            u_list_text, i_list_text, edge_list_text = [], [], []
+            if self.model.audio_modality:
+                u_list_audio, i_list_audio, edge_list_audio = [], [], []
+            
+            for _, batch in enumerate(self.diffusion_loader):
+                batch_item, batch_index = batch
+                batch_item, batch_index = batch_item.to(self.device), batch_index.to(self.device)
+                
+                # Image modality
+                denoised_batch = self.model.sparity_diffusion_model.p_sample(
+                    self.model.denoise_model_image, batch_item, self.model.sampling_steps, self.model.sampling_noise)
+                top_item, indices_ = torch.topk(denoised_batch, k=self.model.rebuild_k)
+                
+                for i in range(batch_index.shape[0]):
+                    latent_intertest_items = indices_[i]
+                    latent_multimodal_items_sim = torch.multiply(
+                        self.model.image_II_matrix_dense[latent_intertest_items],
+                        self.model.text_II_matrix_dense[latent_intertest_items])
+                    if self.model.audio_modality:
+                        latent_multimodal_items_sim = torch.multiply(
+                            latent_multimodal_items_sim,
+                            self.model.audio_II_matrix_dense[latent_intertest_items])
+                    
+                    latent_multimodal_items_prob, latent_multimodal_items_index = torch.topk(
+                        latent_multimodal_items_sim, self.model.rebuild_k, dim=-1)
+                    high_order_items_prob, high_order_items_index = torch.topk(
+                        latent_multimodal_items_prob.flatten(), self.model.rebuild_k + self.model.high_order_topk)
+                    high_order_latent_interest_items = latent_multimodal_items_index.flatten()[high_order_items_index]
+                    
+                    for item in high_order_latent_interest_items:
+                        u_list_image.append(int(batch_index[i].cpu().numpy()))
+                        i_list_image.append(int(item.item()))
+                        edge_list_image.append(1.0)
+                
+                # Text modality
+                denoised_batch = self.model.sparity_diffusion_model.p_sample(
+                    self.model.denoise_model_text, batch_item, self.model.sampling_steps, self.model.sampling_noise)
+                top_item, indices_ = torch.topk(denoised_batch, k=self.model.rebuild_k)
+                
+                for i in range(batch_index.shape[0]):
+                    for j in range(indices_[i].shape[0]):
+                        u_list_text.append(int(batch_index[i].cpu().numpy()))
+                        i_list_text.append(int(indices_[i][j].cpu().numpy()))
+                        edge_list_text.append(1.0)
+                
+                if self.model.audio_modality:
+                    denoised_batch = self.model.sparity_diffusion_model.p_sample(
+                        self.model.denoise_model_audio, batch_item, self.model.sampling_steps, self.model.sampling_noise)
+                    top_item, indices_ = torch.topk(denoised_batch, k=self.model.rebuild_k)
+                    
+                    for i in range(batch_index.shape[0]):
+                        for j in range(indices_[i].shape[0]):
+                            u_list_audio.append(int(batch_index[i].cpu().numpy()))
+                            i_list_audio.append(int(indices_[i][j].cpu().numpy()))
+                            edge_list_audio.append(1.0)
+            
+            u_list_image = np.array(u_list_image)
+            i_list_image = np.array(i_list_image)
+            edge_list_image = np.array(edge_list_image)
+            self.model.image_UI_matrix = self.buildUIMatrix(u_list_image, i_list_image, edge_list_image)
+            self.model.image_UI_matrix = self.model.edgeDropper(self.model.image_UI_matrix)
+            
+            u_list_text = np.array(u_list_text)
+            i_list_text = np.array(i_list_text)
+            edge_list_text = np.array(edge_list_text)
+            self.model.text_UI_matrix = self.buildUIMatrix(u_list_text, i_list_text, edge_list_text)
+            self.model.text_UI_matrix = self.model.edgeDropper(self.model.text_UI_matrix)
+            
+            if self.model.audio_modality:
+                u_list_audio = np.array(u_list_audio)
+                i_list_audio = np.array(i_list_audio)
+                edge_list_audio = np.array(edge_list_audio)
+                self.model.audio_UI_matrix = self.buildUIMatrix(u_list_audio, i_list_audio, edge_list_audio)
+                self.model.audio_UI_matrix = self.model.edgeDropper(self.model.audio_UI_matrix)
+        
+        # 5. Recommendation Training (Standard BPR)
+        rec_loss, loss_batches = super(MVDiffTrainer, self)._train_epoch(train_data, epoch_idx, loss_func)
+        
+        # Log losses
+        self.logger.info(f"MVDiff Losses - Feature Diffusion: Image={epDiLoss_image_modal/len(self.multimodal_feature_loader):.4f}, "
+                        f"Text={epDiLoss_text_modal/len(self.multimodal_feature_loader):.4f}")
+        if self.model.audio_modality:
+            self.logger.info(f"Audio={epDiLoss_audio_modal/len(self.multimodal_feature_loader):.4f}")
+        self.logger.info(f"Interaction Diffusion: Image={epDiLoss_image/steps:.4f}, Text={epDiLoss_text/steps:.4f}")
+        if self.model.audio_modality:
+            self.logger.info(f"Audio={epDiLoss_audio/steps:.4f}")
+        
+        return rec_loss, loss_batches
+

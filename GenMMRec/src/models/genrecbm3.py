@@ -1,24 +1,63 @@
-# coding: utf-8
-# @email: enoche.chow@gmail.com
-r"""
-RFBM3: RF-Enhanced BM3
-Integrates Rectified Flow module to enhance collaborative filtering embeddings
-With optional causal denoising using Inverse Propensity Weighting (IPW)
-"""
+
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.functional import cosine_similarity
 
 from models.bm3 import BM3
-from models.rf_modules import RFEmbeddingGenerator, CausalDenoiser
+from models.rf_modules import RFEmbeddingGenerator
 
 
-class RFBM3(BM3):
+class GenRecBM3(BM3):
     def __init__(self, config, dataset):
         super().__init__(config, dataset)
 
         self.use_rf = config["use_rf"] if "use_rf" in config else True
+        
+        # ===== Denoising Module (Causal Inference) =====
+        self.alpha = nn.Parameter(torch.tensor(1.0))
+        self.beta = nn.Parameter(torch.tensor(0.0))
+        
+        # Get interaction data for propensity score calculation
+        # Handle case where dataset is DataLoader
+        if hasattr(dataset, 'dataset'):
+            actual_dataset = dataset.dataset
+        else:
+            actual_dataset = dataset
+            
+        self.uid_field = config['USER_ID_FIELD']
+        self.iid_field = config['ITEM_ID_FIELD']
+        self.rating_field = 'rating' # Default for baby dataset
+        
+        if hasattr(actual_dataset, 'inter_feat'):
+            # Extract training edges
+            # We need to map to internal indices
+            self.edge_u = actual_dataset.inter_feat[self.uid_field].to(self.device).long()
+            self.edge_i = actual_dataset.inter_feat[self.iid_field].to(self.device).long()
+            
+            # Extract ratings (T_{u,i})
+            # T=1 if rating=5, else 0
+            if self.rating_field in actual_dataset.inter_feat:
+                ratings = actual_dataset.inter_feat[self.rating_field].to(self.device)
+                self.edge_T = (ratings == 5.0).float()
+            else:
+                # Fallback if no rating: assume all clean? Or raise warning
+                # For baby dataset, we know it has ratings.
+                self.edge_T = torch.ones_like(self.edge_u).float()
+        else:
+            # Fallback (should not happen in RecBole)
+            self.edge_u = torch.tensor([], dtype=torch.long).to(self.device)
+            self.edge_i = torch.tensor([], dtype=torch.long).to(self.device)
+            self.edge_T = torch.tensor([]).to(self.device)
+            
+        # Denoising GCN Layers (Weighted Aggregation)
+        # Formula: h = ReLU( Agg(h) * W + b )
+        self.denoise_mlps = nn.ModuleList([
+            nn.Linear(self.embedding_dim, self.embedding_dim)
+            for _ in range(self.n_layers)
+        ])
+        # ===============================================
 
         if self.use_rf:
             # Initialize RF generator with consistent parameters
@@ -34,40 +73,8 @@ class RFBM3(BM3):
                 inference_mix_ratio=config["rf_inference_mix_ratio"] if "rf_inference_mix_ratio" in config else 0.2,
                 contrast_temp=config["rf_contrast_temp"] if "rf_contrast_temp" in config else 0.2,
                 contrast_weight=config["rf_loss_weight"] if "rf_loss_weight" in config else 1.0,
-                n_users=self.n_users,
-                n_items=self.n_items,
-                # 2-RF parameters
-                use_2rf=config["use_2rf"] if "use_2rf" in config else True,
-                rf_2rf_transition_epoch=config["rf_2rf_transition_epoch"] if "rf_2rf_transition_epoch" in config else None,
-                # Memory optimization
-                use_gradient_checkpointing=config["use_gradient_checkpointing"] if "use_gradient_checkpointing" in config else True,
             )
             self._rf_logged_this_epoch = False
-
-            # Store batch indices for RF contrastive loss
-            self._current_batch_users = None
-            self._current_batch_items = None
-
-            # Track training epoch (starts at -1, will be incremented to 0 in first pre_epoch_processing)
-            self._training_epoch = -1
-
-        # ===== Denoising Module =====
-        self.use_denoise = config["use_denoise"] if "use_denoise" in config else False
-
-        if self.use_denoise:
-            self.ps_loss_weight = config["ps_loss_weight"] if "ps_loss_weight" in config else 0.1
-
-            # Initialize CausalDenoiser
-            self.causal_denoiser = CausalDenoiser(
-                embedding_dim=self.embedding_dim,
-                n_users=self.n_users,
-                n_items=self.n_items,
-                n_layers=config["denoise_layers"] if "denoise_layers" in config else self.n_layers,
-                clean_rating_threshold=config["clean_rating_threshold"] if "clean_rating_threshold" in config else 5.0,
-                device=self.device,
-            )
-            # Load treatment labels from dataset
-            self.causal_denoiser.load_treatment_labels(dataset)
 
     def set_epoch(self, epoch):
         """Set current epoch for RF generator."""
@@ -75,14 +82,72 @@ class RFBM3(BM3):
             self.rf_generator.set_epoch(epoch)
             self._rf_logged_this_epoch = False
 
-    def pre_epoch_processing(self):
-        """Called by trainer at the beginning of each epoch."""
-        super().pre_epoch_processing()
-        # Increment epoch counter and update RF generator
-        if self.use_rf:
-            self._training_epoch += 1
-            self.rf_generator.set_epoch(self._training_epoch)
-            self._rf_logged_this_epoch = False
+    def get_denoised_embeddings(self, ego_embeddings):
+        """
+        Compute denoised embeddings using Propensity-Weighted GCN
+        Returns: 
+            h_denoised: (n_users + n_items, dim)
+            loss_ps: Propensity Score Loss
+        """
+        # 1. Estimate Propensity Score e_{u,i}
+        # S_{u,i} = h_u . h_i (dot product of current ego embeddings)
+        # Ensure indices are long
+        edge_u_idx = self.edge_u.long()
+        edge_i_idx = self.edge_i.long()
+        
+        u_emb = ego_embeddings[edge_u_idx]
+        i_emb = ego_embeddings[edge_i_idx + self.n_users]
+        
+        S_ui = (u_emb * i_emb).sum(dim=1)
+        # Use logits for numerical stability in loss
+        logits = self.alpha * S_ui + self.beta
+        e_ui = torch.sigmoid(logits)
+        
+        # 2. Propensity Loss (Cross Entropy with T)
+        # Use binary_cross_entropy_with_logits for stability
+        loss_ps = F.binary_cross_entropy_with_logits(logits, self.edge_T)
+        
+        # 3. Compute Weights for GCN
+        # W = T / e
+        # If T=0, W=0. If T=1, W=1/e.
+        # Avoid division by zero
+        weights = self.edge_T / (e_ui + 1e-8)
+        
+        # 4. Build Denoised Adjacency Matrix
+        # We need a sparse matrix (n_users+n_items, n_users+n_items)
+        # Edges: (u, i+n_users) and (i+n_users, u)
+        # Weights: symmetric
+        
+        indices_row = torch.cat([edge_u_idx, edge_i_idx + self.n_users])
+        indices_col = torch.cat([edge_i_idx + self.n_users, edge_u_idx])
+        values = torch.cat([weights, weights])
+        
+        indices = torch.stack([indices_row, indices_col])
+        shape = torch.Size([self.n_users + self.n_items, self.n_users + self.n_items])
+        
+        adj_denoised = torch.sparse_coo_tensor(indices, values, shape).coalesce()
+        
+        # 5. Denoising GCN Propagation
+        # h^{(l+1)} = ReLU( Agg(h) W + b )
+        h = ego_embeddings
+        all_h = [h]
+        
+        for i in range(self.n_layers):
+            # Aggregation: sum (weighted)
+            h_agg = torch.sparse.mm(adj_denoised, h)
+            
+            # Linear Transformation + ReLU
+            h_next = self.denoise_mlps[i](h_agg)
+            h = F.relu(h_next)
+            
+            all_h.append(h)
+            
+        # Final embedding (mean of layers or last layer? User image shows L-th layer output is h*)
+        # Usually LightGCN takes mean. User image: "Output h^(L) is h*"
+        # So we take the last layer output.
+        h_denoised = all_h[-1]
+        
+        return h_denoised, loss_ps
 
     def forward(self):
         h = self.item_id_embedding.weight
@@ -101,6 +166,13 @@ class RFBM3(BM3):
 
         # all_embeddings: (n_users + n_items, embedding_dim)
         all_embeddings_ori = all_embeddings.clone()
+        
+        # ===== Denoised Embeddings for RF Target =====
+        # Note: We pass the initial ego_embeddings (0-th layer) to the denoiser
+        initial_ego = torch.cat((self.user_embedding.weight,
+                                 self.item_id_embedding.weight), dim=0)
+        all_embeddings_denoised, self.ps_loss = self.get_denoised_embeddings(initial_ego)
+        # =============================================
 
         u_g_embeddings, i_g_embeddings_ori = torch.split(
             all_embeddings, [self.n_users, self.n_items], dim=0
@@ -132,76 +204,22 @@ class RFBM3(BM3):
                 full_conditions.append(full_t_feat)
 
             if len(full_conditions) > 0 and self.training:
-                # ===== Denoising: compute denoised embeddings as RF target =====
-                ps_loss = 0.0
-                if self.use_denoise:
-                    # Get initial ego embeddings for denoising
-                    ego_emb_for_denoise = torch.cat((self.user_embedding.weight,
-                                                     self.item_id_embedding.weight), dim=0)
-                    denoised_emb, ps_loss = self.causal_denoiser(ego_emb_for_denoise)
-                    if denoised_emb is not None:
-                        # Use denoised embeddings as RF generation target
-                        rf_target = denoised_emb.detach()
-                    else:
-                        rf_target = all_embeddings_ori.detach()
-                else:
-                    rf_target = all_embeddings_ori.detach()
-
-                # 计算用户先验（用于RF指导）
-                # Z_u: 用户特定的多模态兴趣表示
-                Z_u = torch.zeros(self.n_users, self.embedding_dim).to(all_embeddings_ori.device)
-                if v_feat_online is not None and hasattr(self, 'R'):
-                    Z_u = Z_u + user_v_feat
-                if t_feat_online is not None and hasattr(self, 'R'):
-                    Z_u = Z_u + user_t_feat
-
-                # Z_hat_u: 通用用户兴趣表示（所有用户的平均值）
-                Z_hat_u = Z_u.mean(dim=0, keepdim=True)
-
-                # 用户先验: 独特的用户兴趣
-                user_prior = Z_u - Z_hat_u  # shape: (n_users, embedding_dim)
-
-                # 计算物品先验（用于RF指导）
-                # Z_i: 物品特定的多模态特征表示
-                Z_i = torch.zeros(self.n_items, self.embedding_dim).to(all_embeddings_ori.device)
-                if v_feat_online is not None:
-                    Z_i = Z_i + v_feat_online
-                if t_feat_online is not None:
-                    Z_i = Z_i + t_feat_online
-
-                # Z_hat_i: 通用物品特征表示（所有物品的平均值）
-                Z_hat_i = Z_i.mean(dim=0, keepdim=True)
-
-                # 物品先验: 独特的物品特征
-                item_prior = Z_i - Z_hat_i  # shape: (n_items, embedding_dim)
-
-                # 合并用户和物品先验
-                full_prior = torch.cat([user_prior, item_prior], dim=0)
-
-                # RF training with denoised embeddings as target
+                # RF training with DENOISED embeddings as TARGET
                 loss_dict = self.rf_generator.compute_loss_and_step(
-                    target_embeds=rf_target,
+                    target_embeds=all_embeddings_denoised.detach(), # Changed from all_embeddings_ori
                     conditions=[c.detach() for c in full_conditions],
-                    user_prior=full_prior.detach(),
-                    epoch=self.rf_generator.current_epoch,
-                    # Pass batch interaction indices for interaction-based contrastive loss
-                    batch_users=self._current_batch_users,
-                    batch_pos_items=self._current_batch_items,
                 )
 
                 if not self._rf_logged_this_epoch:
-                    mode = "2-RF" if loss_dict.get("is_2rf", False) else "1-RF"
-                    log_msg = f"  [{mode} Train] epoch={self.rf_generator.current_epoch}, "
-                    log_msg += f"rf_loss={loss_dict['rf_loss']:.6f}, cl_loss={loss_dict['cl_loss']:.6f}"
-                    if self.use_denoise:
-                        log_msg += f", ps_loss={ps_loss:.6f}"
-                    print(log_msg)
+                    print(f"  [RF Train] epoch={self.rf_generator.current_epoch}, "
+                          f"rf_loss={loss_dict['rf_loss']:.6f}, ps_loss={self.ps_loss.item():.6f}")
                     self._rf_logged_this_epoch = True
 
                 # Generate RF embeddings for full user+item space
                 rf_embeds = self.rf_generator.generate(full_conditions)
 
-                # Mix embeddings (using original embeddings, not denoised)
+                # Mix embeddings
+                # We mix Original (Noisy) with Generated (Denoised-Targeted)
                 all_embeddings_mixed = self.rf_generator.mix_embeddings(
                     all_embeddings_ori, rf_embeds.detach(), training=True
                 )
@@ -213,8 +231,7 @@ class RFBM3(BM3):
                 # Store rf_outputs for cl_loss in calculate_loss
                 rf_outputs = {
                     "rf_embeds": rf_embeds,
-                    "target_embeds": rf_target,
-                    "ps_loss": ps_loss,
+                    "target_embeds": all_embeddings_denoised, # Use Denoised for CL too
                 }
 
                 # Residual connection for items only
@@ -238,10 +255,6 @@ class RFBM3(BM3):
         return u_g_embeddings, i_g_embeddings, None
 
     def calculate_loss(self, interactions):
-        # Store batch indices for RF contrastive loss
-        self._current_batch_users = interactions[0]
-        self._current_batch_items = interactions[1]
-
         # online network (RFBM3 forward returns 3 values)
         u_online_ori, i_online_ori, rf_outputs = self.forward()
         t_feat_online, v_feat_online = None, None
@@ -292,12 +305,23 @@ class RFBM3(BM3):
 
         total_loss = (loss_ui + loss_iu).mean() + self.reg_weight * self.reg_loss(u_online_ori, i_online_ori) + \
                      self.cl_weight * (loss_t + loss_v + loss_tv + loss_vt).mean()
+                     
+        # Add Propensity Score Loss
+        if self.use_rf and hasattr(self, 'ps_loss'):
+             total_loss = total_loss + self.ps_loss
 
-        # Add propensity score loss if denoising is enabled
-        if self.use_denoise and rf_outputs is not None and "ps_loss" in rf_outputs:
-            total_loss = total_loss + self.ps_loss_weight * rf_outputs["ps_loss"]
+        # RF contrastive loss (cl_loss) - split into users and items
+        if self.use_rf and rf_outputs is not None:
+            rf_embeds = rf_outputs["rf_embeds"]
+            target_embeds = rf_outputs["target_embeds"]
 
-        # Note: cl_loss is now always computed in rf_modules.py via compute_loss_and_step()
+            rf_users, rf_items = torch.split(rf_embeds, [self.n_users, self.n_items], dim=0)
+            target_users, target_items = torch.split(target_embeds, [self.n_users, self.n_items], dim=0)
+
+            rf_cl_loss = self.rf_generator._infonce_loss(rf_items[items], target_items[items], 0.2) + \
+                         self.rf_generator._infonce_loss(rf_users[users], target_users[users], 0.2)
+
+            total_loss = total_loss + self.rf_generator.contrast_weight * rf_cl_loss
 
         return total_loss
 

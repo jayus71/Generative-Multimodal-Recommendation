@@ -210,3 +210,14 @@ __marimo__/
 wandb/
 log/*
 .claude/*
+
+# Model checkpoints (should not be committed)
+*.pth
+*.pt
+*.ckpt
+*.bin
+GenMMRec/src/saved/
+**/saved/
+
+# Trae (documentation/notes tool)
+.trae/
