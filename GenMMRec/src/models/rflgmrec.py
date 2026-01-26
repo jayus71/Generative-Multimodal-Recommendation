@@ -64,11 +64,6 @@ class RFLGMRec(LGMRec):
             )
             self.causal_denoiser.load_treatment_labels(dataset)
 
-    def set_epoch(self, epoch):
-        """Set current epoch for RF generator."""
-        if self.use_rf:
-            self.rf_generator.set_epoch(epoch)
-            self._rf_logged_this_epoch = False
 
     def pre_epoch_processing(self):
         """Called by trainer at the beginning of each epoch."""
@@ -77,6 +72,7 @@ class RFLGMRec(LGMRec):
         if self.use_rf:
             self._training_epoch += 1
             self.rf_generator.set_epoch(self._training_epoch)
+            print(f"RFLGMRec: Starting epoch {self._training_epoch}")
             self._rf_logged_this_epoch = False
 
     def forward(self):
@@ -165,7 +161,7 @@ class RFLGMRec(LGMRec):
                     print(log_msg)
                     self._rf_logged_this_epoch = True
 
-                rf_embeds = self.rf_generator.generate(full_conditions)
+                rf_embeds = self.rf_generator.generate(full_conditions, inference_only=True)
 
                 cge_embs = self.rf_generator.mix_embeddings(
                     cge_embs_ori, rf_embeds.detach(), training=True
@@ -180,8 +176,14 @@ class RFLGMRec(LGMRec):
 
             elif len(full_conditions) > 0 and not self.training:
                 # Inference mode
+                n_steps = 10 if self.rf_generator.is_2rf_active else None
+
                 with torch.no_grad():
-                    rf_embeds = self.rf_generator.generate(full_conditions)
+                    rf_embeds = self.rf_generator.generate(
+                        full_conditions, 
+                        n_steps=n_steps,
+                        inference_only=True
+                    )
                     cge_embs = self.rf_generator.mix_embeddings(
                         cge_embs_ori, rf_embeds, training=False
                     )

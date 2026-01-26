@@ -787,8 +787,7 @@ class RFEmbeddingGenerator(nn.Module):
     ) -> Dict[str, float]:
         """
         Compute RF loss and contrastive loss, then optimize.
-
-        Changes:
+                Changes:
         1. Always compute cl_loss here (removed cl_loss_in_main logic)
         2. Use _infonce_loss_interaction_based with batch indices
         3. Support 2-RF via automatic reflow dataset preparation
@@ -819,42 +818,65 @@ class RFEmbeddingGenerator(nn.Module):
 
         # === 2-RF: Prepare reflow dataset if transitioning ===
         fixed_noise = None
-        rf_target = target_embeds.detach()
+        rf_target = target_embeds.detach() # Target 不传梯度
 
         if self.is_2rf_active:
             # Generate paired (Z0, Z1) dataset using current 1-RF model
-            # Only regenerate every 5 epochs to reduce overhead
-            if self.reflow_z0 is None or self.current_epoch % 5 == 0:
+            # 每个 epoch 都更新，确保使用最新的模型输出
+            if self.reflow_z0 is None or True:  # Always update
+                # 显式使用 no_grad 和 inference_only=True，防止梯度泄露
                 with torch.no_grad():
                     self.reflow_z0, self.reflow_z1, self.reflow_conditions = \
                         self.prepare_reflow_dataset(conditions, target_embeds.device)
 
+            # 混合策略：2-RF 初期（前 5 个 epoch）逐渐从原始目标过渡到 reflow 目标
+            epochs_since_2rf_start = self.current_epoch - self.rf_2rf_transition_epoch
+            if epochs_since_2rf_start < 5:
+                # 逐渐增加 reflow 权重：0.2 -> 0.4 -> 0.6 -> 0.8 -> 1.0
+                reflow_weight = 0.2 * (epochs_since_2rf_start + 1)
+                rf_target = reflow_weight * self.reflow_z1 + (1 - reflow_weight) * target_embeds.detach()
+                print(f"  [2-RF Warmup] epoch={self.current_epoch}, reflow_weight={reflow_weight:.2f}")
+            else:
+                rf_target = self.reflow_z1
+
             # Use 1-RF output (Z1) as new target, fixed noise (Z0) as starting point
             fixed_noise = self.reflow_z0
-            rf_target = self.reflow_z1
 
-        # === RF Velocity Field Loss ===
-        rf_loss = self._rectified_flow_loss(
-            rf_target,
-            conditions_cat.detach(),
-            user_prior=user_prior.detach() if user_prior is not None else None,
-            fixed_noise=fixed_noise.detach() if fixed_noise is not None else None,
-        )
+        # === 核心修改：手动计算 Loss 以支持单步预测 ===
+        
+        batch_size = rf_target.shape[0]
+        X1 = rf_target
+        X0 = fixed_noise if fixed_noise is not None else torch.randn_like(X1)
+        
+        # Sample time step t
+        t = torch.rand(batch_size, 1).to(X1.device)
+        
+        # Interpolate state X_t
+        X_t = t * X1 + (1 - t) * X0
+        
+        # Predict velocity v_pred
+        # 这里的 v_pred 是带有梯度的
+        v_pred = self.velocity_net(X_t, t, conditions_cat.detach(), 
+                                   user_prior=user_prior.detach() if user_prior is not None else None, 
+                                   x_1=X1)
 
-        # === Contrastive Loss (always interaction-based) ===
-        # Generate embeddings for contrastive loss
-        start_noise = fixed_noise if self.is_2rf_active else None
-        generated_embeds = self.generate(conditions, n_steps=self.sampling_steps, start_noise=start_noise)
+        # 1. RF Loss (MSE)
+        v_target = X1 - X0
+        rf_loss = F.mse_loss(v_pred, v_target)
 
-        # Split into users and items
-        gen_users, gen_items = torch.split(generated_embeds, [self.n_users, self.n_items], dim=0)
+        # 2. Contrastive Loss (基于单步预测终点)
+        # 几何推断：预测的终点 = 当前位置 + 剩余时间 * 预测速度
+        pred_x1 = X_t + (1 - t) * v_pred
+
+        # Split predicted embeddings into users and items
+        pred_users, pred_items = torch.split(pred_x1, [self.n_users, self.n_items], dim=0)
         target_users, target_items = torch.split(rf_target, [self.n_users, self.n_items], dim=0)
 
-        # Compute interaction-based InfoNCE with batch indices
+        # Compute CL loss directly on the PREDICTED endpoint
         cl_loss = self._infonce_loss_interaction_based(
-            gen_items, target_items, batch_pos_items, self.contrast_temp
+            pred_items, target_items, batch_pos_items, self.contrast_temp
         ) + self._infonce_loss_interaction_based(
-            gen_users, target_users, batch_users, self.contrast_temp
+            pred_users, target_users, batch_users, self.contrast_temp
         )
 
         # === Total Loss and Optimization ===
@@ -877,7 +899,8 @@ class RFEmbeddingGenerator(nn.Module):
         n_steps: Optional[int] = None,
         start_noise: Optional[torch.Tensor] = None,
         use_checkpointing: Optional[bool] = None,
-    ) -> torch.Tensor:
+        inference_only: bool = False, # <--- 新增参数
+        ) -> torch.Tensor:
         """
         Generate embeddings using ODE sampling with optional gradient checkpointing.
 
@@ -887,7 +910,7 @@ class RFEmbeddingGenerator(nn.Module):
             start_noise: Custom starting noise. If None, use random Gaussian noise.
                          Used by prepare_reflow_dataset() to ensure (Z0, Z1) pairing.
             use_checkpointing: Enable gradient checkpointing. If None, uses self.use_gradient_checkpointing.
-
+            inference_only: If True, disables gradient tracking for inference.
         Returns:
             generated_embeds: Generated embeddings
         """
@@ -909,47 +932,45 @@ class RFEmbeddingGenerator(nn.Module):
         if use_checkpointing is None:
             use_checkpointing = self.use_gradient_checkpointing
 
-        # Set to eval mode for inference
-        is_training = self.velocity_net.training
+        # 只有当：网络是 training 模式 AND 外部没有 no_grad AND 没开 inference_only 时，才算训练
+        should_train = self.velocity_net.training and torch.is_grad_enabled() and not inference_only
+
+        # 临时借用 eval 模式 (关闭 Dropout/BN 更新)
+        previous_training_mode = self.velocity_net.training
         self.velocity_net.eval()
 
-        # Start from custom noise or standard Gaussian noise
         if start_noise is not None:
             z_0 = start_noise
-            # Ensure z_0 requires grad during training for proper backpropagation through ODE chain
-            if is_training and not z_0.requires_grad:
+            # 只有需要反向传播时才加 requires_grad
+            if should_train and not z_0.requires_grad:
                 z_0 = z_0.detach().requires_grad_(True)
         else:
             z_0 = torch.randn(batch_size, self.embedding_dim, device=device)
-            # Enable gradient for z_0 during training to allow backprop through ODE chain
-            if is_training:
+            if should_train:
                 z_0.requires_grad_(True)
 
-        # Solve ODE using Euler method
+        # Solve ODE
         z_t = z_0
         dt = 1.0 / n_steps
 
-        with torch.set_grad_enabled(is_training):
+        # 使用计算出的 should_train 状态控制梯度
+        with torch.set_grad_enabled(should_train):
             for i in range(n_steps):
                 t = torch.full((batch_size, 1), i * dt).to(device)
 
-                # Use gradient checkpointing during training to save memory
-                if is_training and use_checkpointing:
-                    # Checkpoint trades computation for memory
-                    # Forward pass is computed twice but memory is freed between passes
+                if should_train and use_checkpointing:
                     v = torch.utils.checkpoint.checkpoint(
                         self.velocity_net,
                         z_t, t, conditions_cat,
-                        use_reentrant=True  # Use reentrant API for better compatibility
+                        use_reentrant=True
                     )
                 else:
                     v = self.velocity_net(z_t, t, conditions_cat)
 
                 z_t = z_t + v * dt
 
-        # Restore training mode
-        if is_training:
-            self.velocity_net.train()
+        # 还原模式
+        self.velocity_net.train(previous_training_mode)
 
         return z_t
 
@@ -1007,13 +1028,10 @@ class RFEmbeddingGenerator(nn.Module):
         conditions_cat = torch.cat(conditions, dim=-1)
         batch_size = conditions_cat.shape[0]
 
-        # Ensure gradients are disabled during generation
         with torch.no_grad():
-            # Z0: Random noise
             z0 = torch.randn(batch_size, self.embedding_dim).to(device)
-
-            # Z1: 1-RF generated output from Z0
-            z1 = self.generate(conditions, n_steps=n_steps, start_noise=z0)
+            # 这里调用 generate 时强制为纯推理模式
+            z1 = self.generate(conditions, n_steps=n_steps, start_noise=z0, inference_only=True)
 
         return z0, z1, conditions_cat
 
@@ -1046,16 +1064,22 @@ class RFEmbeddingGenerator(nn.Module):
         if self.current_epoch < self.warmup_epochs:
             return original_embeds
 
-        # After warmup: mix based on ratio
+        # Progressive mixing: gradually increase mix_ratio over 10 epochs after warmup
+        # This prevents sudden performance drop when RF embeddings are introduced
+        epochs_after_warmup = self.current_epoch - self.warmup_epochs
+        progressive_steps = 10  # 10 epochs to reach full mix_ratio
+
         if training:
-            mix_ratio = self.train_mix_ratio
+            target_mix_ratio = self.train_mix_ratio
         else:
-            mix_ratio = self.inference_mix_ratio
+            target_mix_ratio = self.inference_mix_ratio
+
+        # Gradually increase from 0 to target_mix_ratio over progressive_steps epochs
+        if epochs_after_warmup < progressive_steps:
+            mix_ratio = target_mix_ratio * (epochs_after_warmup + 1) / progressive_steps
+        else:
+            mix_ratio = target_mix_ratio
 
         mixed_embeds = (1 - mix_ratio) * original_embeds + mix_ratio * generated_embeds
 
         return mixed_embeds
-
-    def set_epoch(self, epoch: int):
-        """Set current epoch (called by trainer)."""
-        self.current_epoch = epoch

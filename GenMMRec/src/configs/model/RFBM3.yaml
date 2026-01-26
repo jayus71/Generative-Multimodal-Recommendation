@@ -30,3 +30,7 @@ use_denoise: False
 clean_rating_threshold: 5.0
 denoise_layers: 2
 ps_loss_weight: 0.1
+
+# Wandb settings
+use_wandb: True
+wandb_project: "GenMMRec"  # wandb project name (optional, defaults to "GenMMRec")
