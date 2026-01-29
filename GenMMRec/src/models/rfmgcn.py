@@ -130,7 +130,7 @@ class RFMGCN(MGCN):
         rf_outputs = None
 
         if self.use_rf and self.training:
-            print(f"[RFMGCN] Forward in TRAINING mode")
+            # print(f"[RFMGCN] Forward in TRAINING mode")
             ps_loss = 0.0
             if self.use_denoise:
                 denoised_emb, ps_loss = self.causal_denoiser(ego_embeddings)
@@ -203,7 +203,7 @@ class RFMGCN(MGCN):
 
             rf_outputs = {"ps_loss": ps_loss}
         elif self.use_rf and not self.training:
-            print(f"[RFMGCN] Forward in INFERENCE mode")
+            # print(f"[RFMGCN] Forward in INFERENCE mode")
             # Inference mode
             with torch.no_grad():
                 # Prepare multimodal conditions

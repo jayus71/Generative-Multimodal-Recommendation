@@ -7,7 +7,7 @@ RF Models 分阶段超参数搜索脚本
   阶段2: 固定最优 rf_loss_weight，搜索 rf_learning_rate (3个值)
   阶段3: 固定前两个，搜索 rf_inference_mix_ratio (3个值)
   
-总共: 3 + 3 + 3 = 9 次实验，而不是 3x3x3 = 27 次
+总共: 3 + 3 + 3 = 9 次实验
 
 用法:
   # 运行阶段1（搜索 rf_loss_weight）
@@ -343,8 +343,6 @@ def update_config_for_stage(
                 config[key] = value
                 print(f"  [Config] 使用之前阶段的最优参数: {key} = {value}")
     
-    # 更新 wandb project
-    config["wandb_project"] = stage_config["wandb_project"]
     
     # 写回配置
     with open(config_path, "w") as f:

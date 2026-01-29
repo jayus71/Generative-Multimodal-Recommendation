@@ -81,7 +81,7 @@ class RFVBPR(VBPR):
         rf_outputs = None
 
         if self.use_rf and self.training:
-            print(f"[RFVBPR] Forward in TRAINING mode")
+            # print(f"[RFVBPR] Forward in TRAINING mode")
             ps_loss = 0.0
             if self.use_denoise:
                 # For VBPR, use combined user-item embeddings for denoising
@@ -150,7 +150,7 @@ class RFVBPR(VBPR):
 
             rf_outputs = {"ps_loss": ps_loss}
         elif self.use_rf and not self.training:
-            print(f"[RFVBPR] Forward in INFERENCE mode")
+            # print(f"[RFVBPR] Forward in INFERENCE mode")
             # Inference mode
             with torch.no_grad():
                 # Prepare multimodal conditions

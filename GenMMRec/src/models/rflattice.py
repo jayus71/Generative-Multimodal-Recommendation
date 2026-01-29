@@ -144,7 +144,7 @@ class RFLATTICE(LATTICE):
         rf_outputs = None
 
         if self.use_rf and self.training:
-            print(f"[RFLATTICE] Forward in TRAINING mode")
+            # print(f"[RFLATTICE] Forward in TRAINING mode")
             # Combine user and item embeddings
             all_embeddings_ori = torch.cat([u_g_embeddings, i_g_embeddings_ori], dim=0)
             
@@ -229,7 +229,7 @@ class RFLATTICE(LATTICE):
 
             rf_outputs = {"ps_loss": ps_loss}
         elif self.use_rf and not self.training:
-            print(f"[RFLATTICE] Forward in INFERENCE mode")
+            # print(f"[RFLATTICE] Forward in INFERENCE mode")
             # Inference mode
             with torch.no_grad():
                 # Combine user and item embeddings
