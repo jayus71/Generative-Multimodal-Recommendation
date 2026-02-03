@@ -205,18 +205,18 @@ MODEL_DATASET_CONFIGS = {
 
 # 所有支持的模型和配置文件（当前优先搜索的模型）
 MODEL_CONFIGS = {
-    "RFVBPR": "configs/model/RFVBPR.yaml",
+    # "RFVBPR": "configs/model/RFVBPR.yaml",
+    # "RFCOHESION": "configs/model/RFCOHESION.yaml",
     "RFBM3": "configs/model/RFBM3.yaml",
     "RFFREEDOM": "configs/model/RFFREEDOM.yaml",
     "RFMGCN": "configs/model/RFMGCN.yaml",
     "RFLGMRec": "configs/model/RFLGMRec.yaml",
     "RFSMORE": "configs/model/RFSMORE.yaml",
     "RFGUME": "configs/model/RFGUME.yaml",
-    "RFCOHESION": "configs/model/RFCOHESION.yaml",
 }
 
 # 支持的数据集
-DATASETS = ["baby", "sports", "clothing", "microlens"]
+DATASETS = ["sports", "clothing", "microlens"]
 
 # 分阶段搜索配置
 STAGE_CONFIGS = {
@@ -335,6 +335,11 @@ def update_config_for_stage(
     # 设置固定参数
     for key, value in stage_config["fixed_params"].items():
         config[key] = value
+
+    # 为 wandb_project 添加数据集后缀
+    if "wandb_project" in config and dataset:
+        if not str(config["wandb_project"]).endswith(f"_{dataset}"):
+            config["wandb_project"] = f"{config['wandb_project']}_{dataset}"
     
     # 加载之前阶段的最优参数
     if previous_best_params:
@@ -551,7 +556,7 @@ def main():
         "--dataset",
         type=str,
         required=True,
-        help=f"数据集名称: {', '.join(DATASETS)}",
+        help=f"数据集名称: {', '.join(DATASETS + ['all'])}",
     )
     parser.add_argument(
         "--models",
@@ -571,12 +576,14 @@ def main():
     args = parser.parse_args()
     
     # 解析数据集
-    if args.dataset not in DATASETS:
+    if args.dataset == "all":
+        datasets = DATASETS
+    elif args.dataset in DATASETS:
+        datasets = [args.dataset]
+    else:
         print(f"错误: 不支持的数据集 '{args.dataset}'")
-        print(f"支持的数据集: {', '.join(DATASETS)}")
+        print(f"支持的数据集: {', '.join(DATASETS + ['all'])}")
         sys.exit(1)
-    
-    dataset = args.dataset
     
     # 解析模型
     if "all" in args.models:
@@ -602,7 +609,7 @@ def main():
     print(f"\n{'='*70}")
     print(f"  分阶段超参数搜索")
     print(f"{'='*70}")
-    print(f"  数据集: {dataset}")
+    print(f"  数据集: {', '.join(datasets)}")
     print(f"  模型: {', '.join(models)}")
     print(f"  阶段: {args.stage}")
     print(f"{'='*70}")
@@ -612,22 +619,23 @@ def main():
     for model in models:
         config_path = MODEL_CONFIGS[model]
         
-        if args.stage == "all":
-            # 运行所有阶段
-            success = run_all_stages(model, dataset, config_path)
-            results[f"{model}-{dataset}"] = "✓ 成功" if success else "✗ 失败"
-        else:
-            # 运行单个阶段
-            stage = int(args.stage)
-            
-            # 加载之前阶段的最优参数
-            previous_best_params = {}
-            for prev_stage in range(1, stage):
-                stage_best = load_best_params(model, dataset, prev_stage)
-                previous_best_params.update(stage_best)
-            
-            success = run_stage(model, dataset, config_path, stage, previous_best_params)
-            results[f"{model}-{dataset}-stage{stage}"] = "✓ 成功" if success else "✗ 失败"
+        for dataset in datasets:
+            if args.stage == "all":
+                # 运行所有阶段
+                success = run_all_stages(model, dataset, config_path)
+                results[f"{model}-{dataset}"] = "✓ 成功" if success else "✗ 失败"
+            else:
+                # 运行单个阶段
+                stage = int(args.stage)
+                
+                # 加载之前阶段的最优参数
+                previous_best_params = {}
+                for prev_stage in range(1, stage):
+                    stage_best = load_best_params(model, dataset, prev_stage)
+                    previous_best_params.update(stage_best)
+                
+                success = run_stage(model, dataset, config_path, stage, previous_best_params)
+                results[f"{model}-{dataset}-stage{stage}"] = "✓ 成功" if success else "✗ 失败"
     
     # 打印汇总结果
     print(f"\n{'='*70}")

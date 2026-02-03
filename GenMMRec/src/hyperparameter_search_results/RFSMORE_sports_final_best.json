@@ -1,0 +1,5 @@
+{
+  "rf_loss_weight": 0.6,
+  "rf_learning_rate": 0.0003,
+  "rf_inference_mix_ratio": 0.02
+}

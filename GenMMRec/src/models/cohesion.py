@@ -73,6 +73,8 @@ class COHESION(GeneralRecommender):
 			del image_adj
 			torch.save(self.mm_adj, mm_adj_file)
 
+		self.mm_adj = self.mm_adj.to(self.device)
+
 		# Create user and item embeddings
 		self.initialize_embeddings(config, dataset)
 
