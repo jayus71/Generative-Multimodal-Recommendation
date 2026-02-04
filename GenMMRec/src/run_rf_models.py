@@ -184,6 +184,32 @@ MODEL_DATASET_CONFIGS = {
             "vt_loss": 0.001,
         },
     },
+    "GenBM3": {
+        "baby": {
+            "embedding_size": 64,
+            "n_layers": 1,
+            "dropout": 0.3,
+            "reg_weight": 0.1,
+            "cl_weight": 2.0,
+            "use_neg_sampling": False,
+        },
+        "sports": {
+            "embedding_size": 64,
+            "n_layers": 1,
+            "dropout": 0.5,
+            "reg_weight": 0.1,
+            "cl_weight": 2.0,
+            "use_neg_sampling": False,
+        },
+        "clothing": {
+            "embedding_size": 64,
+            "n_layers": 1,
+            "dropout": 0.3,
+            "reg_weight": 0.1,
+            "cl_weight": 2.0,
+            "use_neg_sampling": False,
+        },
+    },
 }
 
 # 所有支持的模型和配置文件（当前优先搜索的模型）
@@ -196,6 +222,7 @@ MODEL_CONFIGS = {
     "RFSMORE": "configs/model/RFSMORE.yaml",
     "RFGUME": "configs/model/RFGUME.yaml",
     "RFCOHESION": "configs/model/RFCOHESION.yaml",
+    "GenBM3": "configs/model/GenBM3.yaml",
 }
 
 # 其他 RF 模型（暂时不搜索）

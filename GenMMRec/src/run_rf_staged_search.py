@@ -206,7 +206,7 @@ MODEL_DATASET_CONFIGS = {
 # 所有支持的模型和配置文件（当前优先搜索的模型）
 MODEL_CONFIGS = {
     # "RFVBPR": "configs/model/RFVBPR.yaml",
-    # "RFCOHESION": "configs/model/RFCOHESION.yaml",
+    "RFCOHESION": "configs/model/RFCOHESION.yaml",
     "RFBM3": "configs/model/RFBM3.yaml",
     "RFFREEDOM": "configs/model/RFFREEDOM.yaml",
     "RFMGCN": "configs/model/RFMGCN.yaml",

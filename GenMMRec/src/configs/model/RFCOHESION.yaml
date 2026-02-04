@@ -14,7 +14,7 @@ use_rf: true
 rf_hidden_dim: 128
 rf_n_layers: 2
 rf_dropout: 0.1
-rf_sampling_steps: 10
+rf_sampling_steps: 5
 rf_learning_rate: 0.0003
 rf_loss_weight:
 - 0.2

@@ -1,0 +1,41 @@
+# BM3 base parameters
+embedding_size: 64
+feat_embed_dim: 64
+n_layers: 1
+dropout: 0.3
+reg_weight: 0.1
+cl_weight: 2.0
+use_neg_sampling: False
+
+hyper_parameters: [rf_learning_rate, rf_loss_weight]
+
+# GenRecV2 generation infrastructure parameters
+n_ui_layers: 3           # conv_ui layers (independent from BM3's n_layers)
+gen_n_layers: 2          # conv_ii layers
+knn_k: 10               # KNN graph K value
+mm_image_weight: 0.1    # image modality edge weight
+
+# RF parameters
+use_rf: True
+rf_hidden_dim: 128
+rf_n_layers: 2
+rf_dropout: 0.1
+rf_learning_rate: [0.0001, 0.001, 0.01]
+rf_sampling_steps: 10
+rf_loss_weight: [0.2, 0.4, 0.6]
+rf_warmup_epochs: 10
+rf_mix_ratio: 0
+rf_inference_mix_ratio: 0.05
+rf_contrast_temp: 0.1
+use_2rf: False
+
+# Denoise
+use_denoise: True
+clean_rating_threshold: 5.0
+denoise_layers: 2
+ps_loss_weight: 0.1
+
+# GenRecV2 loss weights (independent from BM3)
+gen_cl_loss: 0.01
+vt_loss: 0.01
+bm_temp: 0.8

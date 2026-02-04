@@ -171,6 +171,10 @@ class CausalDenoiser(nn.Module):
         self.denoise_item_ids = None
         self.denoise_treatments = None
 
+        # Pre-built sparse matrix structure (indices only) - avoids rebuilding every forward
+        self.prebuilt_indices = None
+        self.sparse_shape = None
+
     def load_treatment_labels(self, dataset):
         """
         Load rating-based treatment labels T_{u,i} from dataset.
@@ -206,6 +210,28 @@ class CausalDenoiser(nn.Module):
             self.denoise_user_ids = torch.LongTensor(user_ids).to(self.device)
             self.denoise_item_ids = torch.LongTensor(item_ids).to(self.device)
             self.denoise_treatments = torch.FloatTensor(treatments).to(self.device)
+
+            # === Pre-build sparse matrix indices (graph structure) ===
+            # This avoids rebuilding indices in every forward pass
+            n_nodes = self.n_users + self.n_items
+
+            # User -> Item edges (user rows, item cols + n_users)
+            row_u2i = self.denoise_user_ids
+            col_u2i = self.denoise_item_ids + self.n_users
+
+            # Item -> User edges (item rows + n_users, user cols)
+            row_i2u = self.denoise_item_ids + self.n_users
+            col_i2u = self.denoise_user_ids
+
+            # Combine edges (bidirectional graph)
+            row_indices = torch.cat([row_u2i, row_i2u])
+            col_indices = torch.cat([col_u2i, col_i2u])
+
+            # Store pre-built indices
+            self.prebuilt_indices = torch.stack([row_indices, col_indices], dim=0)
+            self.sparse_shape = (n_nodes, n_nodes)
+
+            print(f"[CausalDenoiser] Pre-built sparse graph structure: {len(user_ids)} interactions -> {self.prebuilt_indices.shape[1]} edges")
         else:
             self.treatment_matrix = None
 
@@ -244,27 +270,15 @@ class CausalDenoiser(nn.Module):
         # For T=1 (clean): weight = 1/e (upweighted)
         ipw_weights = self.denoise_treatments / (e_scores.detach() + 1e-8)
 
-        # Build weighted adjacency matrix for user-item bipartite graph
-        n_nodes = self.n_users + self.n_items
+        # === Use pre-built sparse matrix structure ===
+        # Only update values, not indices (much faster!)
+        ipw_values = torch.cat([ipw_weights, ipw_weights])  # Bidirectional edges
 
-        # User -> Item edges (user rows, item cols + n_users)
-        row_u2i = self.denoise_user_ids
-        col_u2i = self.denoise_item_ids + self.n_users
-
-        # Item -> User edges (item rows + n_users, user cols)
-        row_i2u = self.denoise_item_ids + self.n_users
-        col_i2u = self.denoise_user_ids
-
-        # Combine edges
-        row_indices = torch.cat([row_u2i, row_i2u])
-        col_indices = torch.cat([col_u2i, col_i2u])
-        ipw_values = torch.cat([ipw_weights, ipw_weights])
-
-        # Create sparse weighted adjacency matrix
-        indices = torch.stack([row_indices, col_indices], dim=0)
+        # Create sparse weighted adjacency matrix using pre-built indices
+        # No need for .coalesce() since indices are already unique and sorted
         weighted_adj = torch.sparse_coo_tensor(
-            indices, ipw_values, size=(n_nodes, n_nodes)
-        ).coalesce()
+            self.prebuilt_indices, ipw_values, size=self.sparse_shape
+        )
 
         # Degree normalization: D^{-0.5} A D^{-0.5}
         degree = torch.sparse.sum(weighted_adj, dim=1).to_dense() + 1e-8
@@ -784,6 +798,7 @@ class RFEmbeddingGenerator(nn.Module):
         epoch: Optional[int] = None,
         batch_users: Optional[torch.Tensor] = None,
         batch_pos_items: Optional[torch.Tensor] = None,
+        start_embeds: Optional[torch.Tensor] = None,
     ) -> Dict[str, float]:
         """
         Compute RF loss and contrastive loss, then optimize.
@@ -799,6 +814,8 @@ class RFEmbeddingGenerator(nn.Module):
             epoch: Current epoch (for warmup control)
             batch_users: Batch user indices for interaction-based InfoNCE, shape (batch_size,)
             batch_pos_items: Batch positive item indices for interaction-based InfoNCE, shape (batch_size,)
+            start_embeds: Optional starting embeddings (X0) instead of random noise, shape (batch, embedding_dim).
+                          When provided, used as the RF flow starting point (e.g., conv_ui on original graph).
 
         Returns:
             loss_dict: {"rf_loss": float, "cl_loss": float, "total_loss": float, "is_2rf": bool}
@@ -846,7 +863,12 @@ class RFEmbeddingGenerator(nn.Module):
         
         batch_size = rf_target.shape[0]
         X1 = rf_target
-        X0 = fixed_noise if fixed_noise is not None else torch.randn_like(X1)
+        if fixed_noise is not None:
+            X0 = fixed_noise
+        elif start_embeds is not None:
+            X0 = start_embeds.detach()
+        else:
+            X0 = torch.randn_like(X1)
         
         # Sample time step t
         t = torch.rand(batch_size, 1).to(X1.device)
