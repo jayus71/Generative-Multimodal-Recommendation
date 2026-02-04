@@ -2,25 +2,28 @@
 """
 RF Models 分阶段超参数搜索脚本
 
-分阶段搜索策略：
+分阶段搜索策略（默认 RF 模型）：
   阶段1: 搜索 rf_loss_weight (3个值)
   阶段2: 固定最优 rf_loss_weight，搜索 rf_learning_rate (3个值)
   阶段3: 固定前两个，搜索 rf_inference_mix_ratio (3个值)
-  
-总共: 3 + 3 + 3 = 9 次实验
+
+GenBM3 分阶段搜索策略：
+  阶段1: 搜索 bm_temp (4个值)
+  阶段2: 固定最优 bm_temp，搜索 gen_cl_loss (4个值)
+  阶段3: 固定前两个，搜索 rf_inference_mix_ratio (4个值)
 
 用法:
-  # 运行阶段1（搜索 rf_loss_weight）
-  python run_rf_staged_search.py --dataset baby --models all --stage 1
-  
-  # 运行阶段2（搜索 rf_learning_rate，使用阶段1的最优值）
-  python run_rf_staged_search.py --dataset baby --models all --stage 2
-  
-  # 运行阶段3（搜索 rf_inference_mix_ratio，使用阶段1和2的最优值）
-  python run_rf_staged_search.py --dataset baby --models all --stage 3
-  
+  # 运行阶段1
+  python run_rf_staged_search.py --dataset baby --models GenBM3 --stage 1
+
+  # 运行阶段2（使用阶段1的最优值）
+  python run_rf_staged_search.py --dataset baby --models GenBM3 --stage 2
+
+  # 运行阶段3（使用阶段1和2的最优值）
+  python run_rf_staged_search.py --dataset baby --models GenBM3 --stage 3
+
   # 一次性运行所有阶段（自动化）
-  python run_rf_staged_search.py --dataset baby --models all --stage all
+  python run_rf_staged_search.py --dataset baby --models GenBM3 --stage all
 """
 
 import argparse

@@ -7,10 +7,11 @@ reg_weight: 0.1
 cl_weight: 2.0
 use_neg_sampling: False
 
-hyper_parameters: [rf_learning_rate, rf_loss_weight]
+# hyper_parameters: [rf_learning_rate, rf_loss_weight]
+hyper_parameters: [bm_temp]
 
 # GenRecV2 generation infrastructure parameters
-n_ui_layers: 3           # conv_ui layers (independent from BM3's n_layers)
+n_ui_layers: 2           # conv_ui layers (independent from BM3's n_layers) best：2
 gen_n_layers: 2          # conv_ii layers
 knn_k: 10               # KNN graph K value
 mm_image_weight: 0.1    # image modality edge weight
@@ -20,12 +21,14 @@ use_rf: True
 rf_hidden_dim: 128
 rf_n_layers: 2
 rf_dropout: 0.1
-rf_learning_rate: [0.0001, 0.001, 0.01]
+# rf_learning_rate: [0.0001, 0.001, 0.01]
+rf_learning_rate: 0.001
 rf_sampling_steps: 10
-rf_loss_weight: [0.2, 0.4, 0.6]
+# rf_loss_weight: [0.2, 0.4, 0.6]
+rf_loss_weight: 0.6
 rf_warmup_epochs: 10
 rf_mix_ratio: 0
-rf_inference_mix_ratio: 0.05
+rf_inference_mix_ratio: 0.2
 rf_contrast_temp: 0.1
 use_2rf: False
 
@@ -38,4 +41,8 @@ ps_loss_weight: 0.1
 # GenRecV2 loss weights (independent from BM3)
 gen_cl_loss: 0.01
 vt_loss: 0.01
-bm_temp: 0.8
+bm_temp: [0.2, 0.3, 0.4, 0.5]
+
+use_gradient_checkpointing: True
+use_wandb: True
+wandb_project: "GenBM3Baby"

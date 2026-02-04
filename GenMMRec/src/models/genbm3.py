@@ -8,7 +8,7 @@ Two independent paths:
                   -> collaborative signal enhancement -> modal signal enhancement
                   -> contrastive learning loss
 
-Inference: RF generated embeddings mixed with BM3 GCN output via learnable parameter.
+Inference: RF generated embeddings mixed via mix_embeddings at two levels.
 """
 
 import os
@@ -180,8 +180,6 @@ class GenBM3(BM3):
             )
             self.causal_denoiser.load_treatment_labels(dataset)
 
-        # ===== Learnable inference mixing parameter =====
-        self.inference_mix_alpha = nn.Parameter(torch.tensor(0.0))  # sigmoid(0)=0.5
 
     def conv_ii(self, ii_adj, single_modal):
         """conv_ii using gen_n_layers (separate from BACKBONE's n_layers)."""
@@ -266,7 +264,6 @@ class GenBM3(BM3):
             # 6. RF independent training
             rf_start = extended_id_embeds_origin
             loss_dict = self.rf_generator.compute_loss_and_step(
-                start_embeds=rf_start,
                 target_embeds=rf_target,
                 conditions=[explicit_image_embeds.detach(), explicit_text_embeds.detach()],
                 user_prior=full_prior.detach(),
@@ -305,15 +302,17 @@ class GenBM3(BM3):
             rf_outputs = {"ps_loss": ps_loss}
 
         elif self.use_rf and not self.training:
-            # ===== Inference mode =====
+            # ===== Inference mode (same as GenRecV2) =====
             with torch.no_grad():
                 rf_embeds = self.rf_generator.generate(
                     [explicit_image_embeds, explicit_text_embeds]
                 )
-
-            # Learnable mixing
-            alpha = torch.sigmoid(self.inference_mix_alpha)
-            extended_id_embeds = extended_id_embeds + alpha * rf_embeds
+                extended_id_embeds = self.rf_generator.mix_embeddings(
+                    extended_id_embeds_target,
+                    rf_embeds,
+                    training=False,
+                    epoch=self.rf_generator.current_epoch,
+                )
 
         # 9. Modal signal enhancement
         image_weights, text_weights = torch.split(
@@ -360,13 +359,18 @@ class GenBM3(BM3):
             # Training: return BM3 outputs + GenRecV2 outputs separately
             return u_g_bm3, i_g_bm3 + h, gen_outputs
         else:
-            # Inference: mix BM3 and GenRecV2
-            bm3_embeds = all_embeddings  # (n_users+n_items, dim)
-            integration_embeds = gen_outputs["integration_embeds"]
+            # Inference: GenRecV2 path -> gen_all, then mix with BM3
             extended_id_embeds = gen_outputs["extended_id_embeds"]
+            integration_embeds = gen_outputs["integration_embeds"]
+            gen_all = extended_id_embeds + integration_embeds
 
-            # Add integration and extended_id to BM3 embeddings
-            all_embeds = bm3_embeds + integration_embeds
+            # BM3 as base, GenRecV2 as enhancement
+            bm3_embeds = all_embeddings  # (n_users+n_items, dim)
+            all_embeds = self.rf_generator.mix_embeddings(
+                bm3_embeds, gen_all,
+                training=False,
+                epoch=self.rf_generator.current_epoch,
+            )
             u_g, i_g = torch.split(all_embeds, [self.n_users, self.n_items], dim=0)
             return u_g, i_g + h, None
 
